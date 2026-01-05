@@ -24,3 +24,189 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+
+/* เพิ่ม keyframes ถ้ายังไม่มี */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out forwards;
+  opacity: 0;
+  /* เริ่มต้นซ่อนไว้ก่อน */
+}
+
+/* ---------------------------------------------------------
+   Custom Animations & Utilities
+--------------------------------------------------------- */
+@layer utilities {
+
+  /* 1. Fade In Up (สำหรับตัวหนังสือค่อยๆ ลอยขึ้น) */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.8s ease-out forwards;
+  }
+
+  /* 2. Float (สำหรับไอคอนลอยเบาๆ) */
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* 3. Float Slow (สำหรับรูป Dashboard ใหญ่ ลอยช้าๆ และเอียงนิดๆ) */
+  @keyframes floatSlow {
+
+    0%,
+    100% {
+      transform: translateY(0) rotate(-2deg);
+    }
+
+    50% {
+      transform: translateY(-15px) rotate(-2deg);
+    }
+  }
+
+  .animate-float-slow {
+    animation: floatSlow 6s ease-in-out infinite;
+  }
+
+  /* 4. Wave Animation (สำหรับเส้นคลื่นสีแดงด้านล่าง Hero) */
+  @keyframes move-forever {
+    0% {
+      transform: translate3d(-90px, 0, 0);
+    }
+
+    100% {
+      transform: translate3d(85px, 0, 0);
+    }
+  }
+
+  /* กำหนดให้ลูกๆ (path) ใน SVG ที่มี class .parallax ขยับ */
+  .parallax>use {
+    animation: move-forever 25s cubic-bezier(.55, .5, .45, .5) infinite;
+  }
+
+  /* ปรับความเร็วแต่ละชั้นให้ไม่เท่ากัน เพื่อให้เกิดมิติ (Parallax Effect) */
+  .parallax>use:nth-child(1) {
+    animation-delay: -2s;
+    animation-duration: 7s;
+  }
+
+  .parallax>use:nth-child(2) {
+    animation-delay: -3s;
+    animation-duration: 10s;
+  }
+
+  .parallax>use:nth-child(3) {
+    animation-delay: -4s;
+    animation-duration: 13s;
+  }
+
+  .parallax>use:nth-child(4) {
+    animation-delay: -5s;
+    animation-duration: 20s;
+  }
+
+  /* 5. Custom Animation Delays (ถ้า Tailwind ไม่สร้างให้) */
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+
+  @layer utilities {
+    /* ... ของเดิมที่มีอยู่ ... */
+
+    /* 1. Text Shimmer: เอฟเฟกต์สีวิ่งผ่านตัวหนังสือ */
+    @keyframes text-shimmer {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      100% {
+        background-position: 200% 50%;
+      }
+    }
+
+    .animate-text-shimmer {
+      background-size: 200% auto;
+      animation: text-shimmer 3s linear infinite;
+    }
+
+    /* 2. Blob Animation: สำหรับวงกลมแสงพื้นหลังขยับไปมา */
+    @keyframes blob {
+      0% {
+        transform: translate(0px, 0px) scale(1);
+      }
+
+      33% {
+        transform: translate(30px, -50px) scale(1.1);
+      }
+
+      66% {
+        transform: translate(-20px, 20px) scale(0.9);
+      }
+
+      100% {
+        transform: translate(0px, 0px) scale(1);
+      }
+    }
+
+    .animate-blob {
+      animation: blob 7s infinite;
+    }
+
+    /* 3. Shine: เอฟเฟกต์แสงวิ่งผ่านการ์ด */
+    @keyframes shine {
+      100% {
+        left: 125%;
+      }
+    }
+
+    .animate-shine {
+      animation: shine 3s infinite;
+    }
+  }
+}
