@@ -1,13 +1,337 @@
 "use client";
-
+import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+
+  // --- State เดิม ---
   const [selectedHub, setSelectedHub] = useState<any>(null);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+
+  // --- ✅ State สำหรับ Welcome Popup (ใหม่) ---
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
+
+  // --- State สำหรับข้อมูลเอกสาร ---
+  const [circularLetters, setCircularLetters] = useState<any[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+
+  // --- State สำหรับ Filter & Pagination ---
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDept, setFilterDept] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // --- State Login & Session ---
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [session, setSession] = useState<any>(null);
+
+  // --- Departments List ---
+  const departments = ["รป.", "ทข.", "ตล.", "บค.", "อบ.", "กง.", "ทพ."];
+
+  // --- Helper: Format Thai Date ---
+  const formatThaiDate = (dateString: string) => {
+    if (!dateString) return "-";
+    const [y, m, d] = dateString.split("-").map(Number);
+    const months = [
+      "ม.ค.",
+      "ก.พ.",
+      "มี.ค.",
+      "เม.ย.",
+      "พ.ค.",
+      "มิ.ย.",
+      "ก.ค.",
+      "ส.ค.",
+      "ก.ย.",
+      "ต.ค.",
+      "พ.ย.",
+      "ธ.ค.",
+    ];
+    const yearTh = (y + 543).toString().slice(-2);
+    const dayTh = d < 10 ? `0${d}` : d;
+    return `${dayTh} ${months[m - 1]} ${yearTh}`;
+  };
+
+  // --- Helper: Get Color by Type ---
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "ประกาศ":
+        return "bg-red-500";
+      case "ขอความร่วมมือ":
+        return "bg-blue-500";
+      case "คำสั่ง":
+        return "bg-amber-500";
+      case "แจ้งเวียน":
+        return "bg-green-500";
+      default:
+        return "bg-gray-400";
+    }
+  };
+
+  // --- Helper: Get Department Badge Style ---
+  const getDeptBadgeStyle = (dept: string) => {
+    const styles: Record<string, string> = {
+      "รป.": "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
+      "ทข.":
+        "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100",
+      "ตล.":
+        "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100",
+      "บค.": "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100",
+      "อบ.": "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
+      "กง.":
+        "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+      "ทพ.": "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+    };
+    return (
+      styles[dept] ||
+      "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+    );
+  };
+
+  // --- Helper: Get News Cover Image (SVG) ---
+  const getNewsCover = (id: number) => {
+    switch (id) {
+      case 1: // ประชุมสรุปผล
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 400 250"
+            fill="none"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <rect width="400" height="250" fill="#F0F9FF" />
+            <circle cx="350" cy="50" r="100" fill="#BAE6FD" fillOpacity="0.5" />
+            <rect
+              x="60"
+              y="80"
+              width="160"
+              height="100"
+              rx="8"
+              fill="white"
+              stroke="#38BDF8"
+              strokeWidth="2"
+            />
+            <path
+              d="M80 140 L110 110 L140 130 L190 90"
+              stroke="#0EA5E9"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="80" cy="140" r="3" fill="#0EA5E9" />
+            <circle cx="110" cy="110" r="3" fill="#0EA5E9" />
+            <circle cx="140" cy="130" r="3" fill="#0EA5E9" />
+            <circle cx="190" cy="90" r="3" fill="#0EA5E9" />
+            <rect
+              x="240"
+              y="100"
+              width="80"
+              height="80"
+              rx="8"
+              fill="#E0F2FE"
+            />
+            <path
+              d="M260 120 H300 M260 140 H290 M260 160 H280"
+              stroke="#7DD3FC"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case 2: // สอบเลื่อนระดับ
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 400 250"
+            fill="none"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <rect width="400" height="250" fill="#FFFBEB" />
+            <path d="M0 200 L400 150 V250 H0 Z" fill="#FEF3C7" />
+            <rect
+              x="150"
+              y="50"
+              width="100"
+              height="140"
+              rx="4"
+              fill="white"
+              stroke="#F59E0B"
+              strokeWidth="2"
+              transform="rotate(-5 200 125)"
+            />
+            <rect
+              x="165"
+              y="70"
+              width="40"
+              height="40"
+              rx="20"
+              fill="#FDE68A"
+              transform="rotate(-5 200 125)"
+            />
+            <path
+              d="M175 90 L185 100 L195 80"
+              stroke="#D97706"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              transform="rotate(-5 200 125)"
+            />
+            <rect
+              x="165"
+              y="125"
+              width="70"
+              height="6"
+              rx="3"
+              fill="#F3F4F6"
+              transform="rotate(-5 200 125)"
+            />
+            <rect
+              x="165"
+              y="140"
+              width="50"
+              height="6"
+              rx="3"
+              fill="#F3F4F6"
+              transform="rotate(-5 200 125)"
+            />
+            <circle cx="320" cy="80" r="40" fill="#FCD34D" fillOpacity="0.3" />
+          </svg>
+        );
+      case 3: // กิจกรรม CSR
+        return (
+          <svg
+            className="w-full h-full"
+            viewBox="0 0 400 250"
+            fill="none"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <rect width="400" height="250" fill="#FEF2F2" />
+            <circle cx="50" cy="200" r="80" fill="#FECACA" fillOpacity="0.5" />
+            <path
+              d="M200 80 C170 50 120 80 140 130 L200 190 L260 130 C280 80 230 50 200 80 Z"
+              fill="#EF4444"
+              className="animate-pulse"
+            />
+            <path
+              d="M200 80 C170 50 120 80 140 130 L200 190 L260 130 C280 80 230 50 200 80 Z"
+              stroke="#B91C1C"
+              strokeWidth="2"
+              strokeOpacity="0.2"
+            />
+            <path
+              d="M100 50 L120 70 M300 50 L280 70 M200 30 V50"
+              stroke="#FCA5A5"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <circle cx="280" cy="180" r="6" fill="#FCA5A5" />
+            <circle cx="120" cy="180" r="4" fill="#FCA5A5" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // --- Check Session on Mount ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Fetch Documents ---
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      setIsLoadingDocs(true);
+      const { data, error } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("status", "published")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching documents:", error);
+      } else if (data) {
+        const formattedData = data.map((doc, index) => ({
+          id: doc.id,
+          no: index + 1,
+          title: doc.title,
+          date: formatThaiDate(doc.date),
+          dept: doc.dept,
+          bookNo: doc.book_no,
+          type: doc.type,
+          statusColor: getTypeColor(doc.type),
+          phone: doc.phone || "-",
+          details: doc.details,
+          links: doc.links || [],
+          files: doc.files || [],
+        }));
+        setCircularLetters(formattedData);
+      }
+      setIsLoadingDocs(false);
+    };
+
+    fetchDocuments();
+  }, []);
+
+  // --- Filter Logic ---
+  const filteredDocs = circularLetters.filter((doc) => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      doc.title.toLowerCase().includes(term) ||
+      doc.bookNo.toLowerCase().includes(term);
+    const matchesDept = filterDept ? doc.dept === filterDept : true;
+    return matchesSearch && matchesDept;
+  });
+
+  // --- Pagination Logic ---
+  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+  const paginatedDocs = filteredDocs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterDept]);
+
+  // --- Login Logic ---
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setLoginError("");
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: username,
+      password: password,
+    });
+
+    if (error) {
+      console.error("Login Error:", error.message);
+      setLoginError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      setIsLoading(false);
+    } else {
+      console.log("Login Success:", data);
+      router.push("/dashboard");
+    }
+  };
 
   // --- Scroll Listener ---
   useEffect(() => {
@@ -18,7 +342,7 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // --- Scroll Handler ---
+  // --- Scroll & Nav Handler ---
   const handleNavClick = (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
     item: any
@@ -26,6 +350,12 @@ export default function Home() {
     e.preventDefault();
     if (item.name === "ติดต่อเรา") {
       setIsContactOpen(true);
+    } else if (item.name === "Admin") {
+      if (session) {
+        router.push("/dashboard");
+      } else {
+        setIsLoginOpen(true);
+      }
     } else if (item.href.startsWith("#")) {
       const targetId = item.href.substring(1);
       const elem = document.getElementById(targetId);
@@ -48,6 +378,7 @@ export default function Home() {
     { name: "บริการภายใน", href: "#hub-links", active: false },
     { name: "ข่าวสาร", href: "#news", active: false },
     { name: "ติดต่อเรา", href: "#", active: false },
+    { name: "Admin", href: "#", active: false },
   ];
 
   const contactList = [
@@ -63,7 +394,7 @@ export default function Home() {
   const hubItems = [
     {
       code: "อบ.",
-      name: "ส่วนอำนวยการและบริหาร",
+      name: "ส่วนอำนวยการและบุคคล",
       icon: (
         <svg
           className="w-6 h-6"
@@ -89,7 +420,7 @@ export default function Home() {
     },
     {
       code: "รป.",
-      name: "ส่วนระบบปฏิบัติการ",
+      name: "ส่วนระบบไปรษณีย์และสารสนเทศ",
       icon: (
         <svg
           className="w-6 h-6"
@@ -170,7 +501,7 @@ export default function Home() {
     },
     {
       code: "ทข.",
-      name: "ส่วนเทคโนโลยีและข้อมูล",
+      name: "ส่วนทีมขาย",
       icon: (
         <svg
           className="w-6 h-6"
@@ -195,7 +526,7 @@ export default function Home() {
     },
     {
       code: "ตล.",
-      name: "ส่วนการตลาดและการขาย",
+      name: "ส่วนการตลาด",
       icon: (
         <svg
           className="w-6 h-6"
@@ -220,7 +551,7 @@ export default function Home() {
     },
     {
       code: "บค.",
-      name: "ส่วนทรัพยากรบุคคล",
+      name: "ส่วนบริการหลังการขายและดูแลลูกค้า",
       icon: (
         <svg
           className="w-6 h-6"
@@ -241,81 +572,6 @@ export default function Home() {
         { title: "ระบบลางานออนไลน์ (ESS)", url: "#" },
         { title: "ประเมินผลการปฏิบัติงาน (KPI)", url: "#" },
         { title: "สมัครอบรมภายใน", url: "#" },
-      ],
-    },
-  ];
-
-  const circularLetters = [
-    {
-      id: 1,
-      no: 1,
-      title: "ประกาศวันหยุดตามประเพณี ประจำปี พ.ศ. 2568",
-      date: "02 ม.ค. 68",
-      dept: "ส่วนบุคคล",
-      bookNo: "ปข.6/ว.001",
-      type: "ประกาศ",
-      statusColor: "bg-red-500",
-      phone: "0-2831-XXXX",
-      details:
-        "แจ้งกำหนดการวันหยุดตามประเพณี เพื่อให้พนักงานวางแผนการปฏิบัติงานล่วงหน้า โดยมีรายละเอียดวันหยุดรวมทั้งสิ้น 17 วัน...",
-      links: [
-        { name: "ปฏิทินวันหยุด 2568 (Google Calendar)", url: "#" },
-        { name: "ระเบียบการลาหยุด", url: "#" },
-      ],
-      files: [
-        { name: "ประกาศ_วันหยุด2568.pdf", size: "1.2 MB" },
-        { name: "ตารางเวรปฏิบัติงาน.xlsx", size: "500 KB" },
-      ],
-    },
-    {
-      id: 2,
-      no: 2,
-      title: "ขอความร่วมมือมาตรการประหยัดพลังงานภายในสำนักงาน",
-      date: "05 ม.ค. 68",
-      dept: "ส่วนอำนวยการ",
-      bookNo: "ปข.6/ว.005",
-      type: "ขอความร่วมมือ",
-      statusColor: "bg-blue-500",
-      phone: "0-2831-XXXX",
-      details:
-        "เนื่องด้วยสภาวะค่าไฟฟ้าที่ปรับตัวสูงขึ้น จึงขอความร่วมมือทุกส่วนงาน ปิดไฟและเครื่องปรับอากาศในช่วงพักเที่ยง และถอดปลั๊กอุปกรณ์ไฟฟ้าเมื่อเลิกใช้งาน...",
-      links: [],
-      files: [{ name: "มาตรการประหยัดพลังงาน.pdf", size: "850 KB" }],
-    },
-    {
-      id: 3,
-      no: 3,
-      title: "การปรับปรุงระบบเครือข่ายอินเทอร์เน็ต (Maintenance)",
-      date: "08 ม.ค. 68",
-      dept: "ส่วนเทคโนโลยี",
-      bookNo: "ปข.6/ว.012",
-      type: "แจ้งเพื่อทราบ",
-      statusColor: "bg-amber-500",
-      phone: "0-2831-XXXX",
-      details:
-        "จะทำการปิดปรับปรุงระบบเครือข่าย Core Network ในวันที่ 15 มกราคม 2568 เวลา 02:00 - 04:00 น. ส่งผลให้ไม่สามารถใช้งานระบบสารบรรณได้ชั่วคราว",
-      links: [{ name: "ตรวจสอบสถานะระบบ", url: "#" }],
-      files: [],
-    },
-    {
-      id: 4,
-      no: 4,
-      title: "เชิญชวนร่วมกิจกรรม 'ไปรษณีย์ไทย ห่วงใยสุขภาพ'",
-      date: "10 ม.ค. 68",
-      dept: "ประชาสัมพันธ์",
-      bookNo: "ปข.6/ป.003",
-      type: "กิจกรรม",
-      statusColor: "bg-green-500",
-      phone: "0-2831-XXXX",
-      details:
-        "ขอเชิญพนักงานทุกท่านเข้าร่วมตรวจสุขภาพประจำปี และร่วมกิจกรรมเดิน-วิ่ง การกุศล ในวันที่ 20 มกราคม นี้ ณ สวนสาธารณะ...",
-      links: [
-        { name: "แบบฟอร์มลงทะเบียน", url: "#" },
-        { name: "รายละเอียดเส้นทางวิ่ง", url: "#" },
-      ],
-      files: [
-        { name: "โปสเตอร์กิจกรรม.jpg", size: "2.5 MB" },
-        { name: "ตารางตรวจสุขภาพ.pdf", size: "600 KB" },
       ],
     },
   ];
@@ -352,11 +608,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden">
-      {/* --------------------------------------------------------------------------------
-         GLOBAL STYLES & ANIMATIONS
-      -------------------------------------------------------------------------------- */}
+      {/* GLOBAL STYLES & ANIMATIONS */}
       <style jsx global>{`
-        /* Grid Background Pattern */
         .bg-grid-slate {
           background-size: 40px 40px;
           background-image: linear-gradient(
@@ -366,8 +619,6 @@ export default function Home() {
             ),
             linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
         }
-
-        /* Data Flow Lines Animation */
         @keyframes dash-flow {
           to {
             stroke-dashoffset: -100;
@@ -376,8 +627,6 @@ export default function Home() {
         .animate-dash-flow {
           animation: dash-flow 2s linear infinite;
         }
-
-        /* Floating Cards Animation */
         @keyframes float-card {
           0%,
           100% {
@@ -396,8 +645,6 @@ export default function Home() {
         .animate-float-card-3 {
           animation: float-card 7s ease-in-out infinite 0.5s;
         }
-
-        /* Pulse Ring */
         @keyframes pulse-ring {
           0% {
             transform: scale(0.8);
@@ -411,8 +658,6 @@ export default function Home() {
         .animate-pulse-ring {
           animation: pulse-ring 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
         }
-
-        /* Gradient Text Shimmer */
         @keyframes shimmer {
           0% {
             background-position: 200% center;
@@ -427,13 +672,11 @@ export default function Home() {
         }
       `}</style>
 
-      {/* --------------------------------------------------------------------------------
-         NAVBAR
-      -------------------------------------------------------------------------------- */}
+      {/* NAVBAR */}
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
-            ? "bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm py-2"
+            ? "bg-white/70 backdrop-blur-lg border-b border-gray-100/50 shadow-sm py-2"
             : "bg-transparent border-transparent py-4"
         }`}
       >
@@ -472,22 +715,16 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* --------------------------------------------------------------------------------
-         NEW HERO SECTION: Information Logistics Theme
-      -------------------------------------------------------------------------------- */}
+      {/* HERO SECTION */}
       <section className="relative min-h-[85vh] w-full flex items-center justify-center overflow-hidden pt-24 pb-12">
-        {/* Background Elements */}
         <div className="absolute inset-0 bg-[#FAFAFA]">
           <div className="absolute inset-0 bg-grid-slate [mask-image:linear-gradient(to_bottom,white,transparent)]"></div>
-          {/* Ambient Glow */}
           <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-red-500/5 rounded-full blur-[120px]"></div>
           <div className="absolute bottom-[10%] left-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[100px]"></div>
         </div>
 
         <div className="container relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left Content: Text & Vision */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-8 animate-fade-in-up">
-            {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-sm transition-transform hover:scale-105 cursor-default">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -502,7 +739,6 @@ export default function Home() {
               </span>
             </div>
 
-            {/* Headlines */}
             <div className="space-y-2">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-gray-900 leading-[1.1] tracking-tight">
                 ขับเคลื่อนอนาคต <br />
@@ -514,22 +750,17 @@ export default function Home() {
               </h1>
             </div>
 
-            {/* Description */}
             <p className="text-lg text-gray-500 font-medium max-w-lg leading-relaxed">
               ก้าวสู่การเป็นศูนย์กลางโลจิสติกส์สารสนเทศที่แข็งแกร่ง
-              ผสานความยั่งยืน {/* เปลี่ยนสี Sustainability เป็นแดง */}
+              ผสานความยั่งยืน{" "}
               <span className="text-[#ED1C24] font-semibold">
                 (Sustainability)
               </span>{" "}
               กับนวัตกรรมดิจิทัล เชื่อมโยงคนไทยและเศรษฐกิจด้วยบริการครบวงจร
             </p>
-
-            {/* ลบปุ่มออก และ ลบ Stats ออก ตามที่ขอ */}
           </div>
 
-          {/* Right Content: 3D Tech Visualization */}
           <div className="relative h-[600px] w-full flex items-center justify-center perspective-[1000px]">
-            {/* Central Hub Node */}
             <div className="relative w-40 h-40 z-20">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-[#ED1C24] rounded-3xl transform rotate-45 shadow-2xl shadow-red-500/40 flex items-center justify-center animate-float">
                 <svg
@@ -546,17 +777,14 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              {/* Pulse Effects */}
               <div className="absolute inset-0 border-2 border-red-500/30 rounded-3xl transform rotate-45 animate-pulse-ring"></div>
               <div className="absolute inset-0 border border-red-500/20 rounded-3xl transform rotate-45 animate-pulse-ring delay-300"></div>
             </div>
 
-            {/* Connection Lines (SVG) */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none z-10"
               viewBox="0 0 600 600"
             >
-              {/* Line to Top Right */}
               <path
                 d="M300 300 L450 150"
                 stroke="#E5E7EB"
@@ -564,8 +792,6 @@ export default function Home() {
                 strokeDasharray="4 4"
               />
               <circle cx="450" cy="150" r="3" fill="#ED1C24" />
-
-              {/* Line to Bottom Left (Sustainability) - เปลี่ยนเป็นสีแดง */}
               <path
                 d="M300 300 L150 450"
                 stroke="#E5E7EB"
@@ -573,8 +799,6 @@ export default function Home() {
                 strokeDasharray="4 4"
               />
               <circle cx="150" cy="450" r="3" fill="#ED1C24" />
-
-              {/* Line to Bottom Right */}
               <path
                 d="M300 300 L450 400"
                 stroke="#E5E7EB"
@@ -582,8 +806,6 @@ export default function Home() {
                 strokeDasharray="4 4"
               />
               <circle cx="450" cy="400" r="3" fill="#3B82F6" />
-
-              {/* Animated Flow Lines */}
               <path
                 d="M300 300 L450 150"
                 stroke="#ED1C24"
@@ -591,7 +813,6 @@ export default function Home() {
                 strokeDasharray="10 100"
                 className="animate-dash-flow opacity-50"
               />
-              {/* เส้น Sustainability ไหลเป็นสีแดง */}
               <path
                 d="M150 450 L300 300"
                 stroke="#ED1C24"
@@ -601,7 +822,6 @@ export default function Home() {
               />
             </svg>
 
-            {/* Floating Card 1: Sustainability (เปลี่ยนเป็นสีแดงทั้งหมด) */}
             <div className="absolute top-20 right-10 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-100 animate-float-card-1 z-30 max-w-[180px]">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-[#ED1C24]">
@@ -631,7 +851,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Floating Card 2: Digital Services (Blue) */}
             <div className="absolute bottom-10 left-10 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-100 animate-float-card-2 z-30">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -661,7 +880,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Floating Card 3: Network (Red/Brand) */}
             <div className="absolute bottom-24 right-0 bg-white/90 backdrop-blur-md p-3 rounded-xl shadow-lg border-l-4 border-[#ED1C24] animate-float-card-3 z-20">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -674,172 +892,326 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------------------------------
-         SECTION: CIRCULAR LETTERS (หนังสือเวียน) - UNIFIED HEADER
-      -------------------------------------------------------------------------------- */}
+      {/* SECTION: CIRCULAR LETTERS (หนังสือเวียน) - TABLE REDESIGN */}
       <section
         id="circular"
         className="py-24 px-6 bg-white border-t border-gray-100"
       >
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
-            <div>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-[#ED1C24] text-[10px] font-bold tracking-widest uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
-                E-Document
-              </span>
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
-                หนังสือเวียน
-              </h2>
-              <p className="text-gray-500 mt-2 font-medium max-w-lg">
-                ประกาศ คำสั่ง และหนังสือขอความร่วมมือล่าสุด
-              </p>
+          {/* Header & Filter Toolbar */}
+          <div className="flex flex-col gap-6 mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+              <div>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-[#ED1C24] text-[10px] font-bold tracking-widest uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
+                  E-Document
+                </span>
+                <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
+                  หนังสือเวียน
+                </h2>
+                <p className="text-gray-500 mt-2 font-medium max-w-lg">
+                  ประกาศ คำสั่ง และหนังสือขอความร่วมมือล่าสุด
+                </p>
+              </div>
             </div>
-            <button className="group flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:border-red-200 hover:text-[#ED1C24] hover:shadow-sm transition-all">
-              ดูทั้งหมด
-              <svg
-                className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
+
+            {/* ✅ Search & Filter Bar */}
+            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col md:flex-row gap-4 items-center shadow-inner">
+              <div className="relative w-full md:w-1/2">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="ค้นหาเลขที่หนังสือ, หัวข้อเรื่อง..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-3 w-full bg-white border border-gray-200 rounded-xl text-sm font-medium focus:border-red-300 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                 />
-              </svg>
-            </button>
+              </div>
+              <div className="relative w-full md:w-1/4">
+                <select
+                  value={filterDept}
+                  onChange={(e) => setFilterDept(e.target.value)}
+                  className="w-full pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:border-red-300 focus:ring-4 focus:ring-red-50 outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">ทุกส่วนงาน</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <div className="w-full md:w-auto text-sm text-gray-400 font-medium">
+                พบ {filteredDocs.length} รายการ
+              </div>
+            </div>
           </div>
 
+          {/* Table Container */}
           <div className="bg-white rounded-3xl shadow-xl shadow-gray-100/50 overflow-hidden border border-gray-100">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="py-5 px-8 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-24">
-                      ลำดับ
-                    </th>
-                    <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
-                      หัวข้อเรื่อง
-                    </th>
-                    <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-40">
-                      ลงวันที่
-                    </th>
-                    <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-48">
-                      ส่วนงาน
-                    </th>
-                    <th className="py-5 px-8 text-xs font-bold text-gray-400 uppercase tracking-wider text-right w-32">
-                      รายละเอียด
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {circularLetters.map((doc, index) => (
-                    <tr
-                      key={doc.id}
-                      className="group hover:bg-white transition-all duration-300 relative"
-                    >
-                      <td className="py-6 px-8">
-                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-sm font-bold text-gray-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
-                          {doc.no}
-                        </div>
-                      </td>
-                      <td className="py-6 px-6">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`mt-1 w-2 h-2 rounded-full ${doc.statusColor} shrink-0`}
-                          ></div>
-                          <div>
-                            <div className="text-base font-bold text-gray-800 group-hover:text-[#ED1C24] transition-colors leading-snug mb-1">
-                              {doc.title}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500">
-                                {doc.type}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                เลขที่: {doc.bookNo}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-6 px-6">
-                        <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
-                          <svg
-                            className="w-4 h-4 text-gray-300"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          {doc.date}
-                        </div>
-                      </td>
-                      <td className="py-6 px-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <span className="text-sm font-bold text-gray-600">
-                            {doc.dept}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-6 px-8 text-right">
-                        {/* Eye Icon Button */}
-                        <button
-                          onClick={() => setSelectedDocument(doc)}
-                          className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:border-[#ED1C24] hover:shadow-md transition-all duration-300 transform group-hover:scale-110 ml-auto"
-                          title="ดูรายละเอียด"
+            {isLoadingDocs ? (
+              <div className="p-20 text-center flex flex-col items-center gap-4">
+                <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
+                <span className="text-gray-400 font-medium">
+                  กำลังโหลดข้อมูล...
+                </span>
+              </div>
+            ) : filteredDocs.length === 0 ? (
+              <div className="p-20 text-center flex flex-col items-center text-gray-400 gap-4">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-gray-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <p>ไม่พบข้อมูลเอกสาร</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 border-b border-gray-100">
+                        <th className="py-5 px-8 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-24">
+                          ลำดับ
+                        </th>
+                        <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left">
+                          หัวข้อเรื่อง
+                        </th>
+                        <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-40">
+                          ลงวันที่
+                        </th>
+                        <th className="py-5 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-left w-48">
+                          ส่วนงาน
+                        </th>
+                        <th className="py-5 px-8 text-xs font-bold text-gray-400 uppercase tracking-wider text-right w-32">
+                          รายละเอียด
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {paginatedDocs.map((doc, index) => (
+                        <tr
+                          key={doc.id}
+                          className="group hover:bg-white transition-all duration-300 relative"
                         >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <td className="py-6 px-8">
+                            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-sm font-bold text-gray-400 group-hover:bg-red-50 group-hover:text-red-500 transition-colors">
+                              {/* Calculate running number based on page */}
+                              {(currentPage - 1) * itemsPerPage + index + 1}
+                            </div>
+                          </td>
+                          <td className="py-6 px-6">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`mt-1.5 w-2 h-2 rounded-full ${doc.statusColor} shrink-0 ring-2 ring-white shadow-sm`}
+                              ></div>
+                              <div className="flex-1">
+                                <div className="text-base font-bold text-gray-800 group-hover:text-[#ED1C24] transition-colors leading-snug mb-1.5">
+                                  {doc.title}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-y-2 gap-x-3">
+                                  {/* Type Badge */}
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
+                                    {doc.type}
+                                  </span>
+
+                                  {/* Book No */}
+                                  <span className="text-xs text-gray-400 font-medium">
+                                    เลขที่:{" "}
+                                    <span className="text-gray-600">
+                                      {doc.bookNo}
+                                    </span>
+                                  </span>
+
+                                  {/* ✅ ส่วนแสดงจำนวนไฟล์และลิงก์ (New) */}
+                                  {(doc.files.length > 0 ||
+                                    doc.links.length > 0) && (
+                                    <div className="flex items-center gap-2 pl-2 border-l border-gray-200 ml-1">
+                                      {doc.files.length > 0 && (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100"
+                                          title={`มีไฟล์แนบ ${doc.files.length} ไฟล์`}
+                                        >
+                                          <svg
+                                            className="w-3 h-3 text-gray-400"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                            />
+                                          </svg>
+                                          {doc.files.length}
+                                        </span>
+                                      )}
+                                      {doc.links.length > 0 && (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100"
+                                          title={`มีลิงก์แนบ ${doc.links.length} ลิงก์`}
+                                        >
+                                          <svg
+                                            className="w-3 h-3 text-gray-400"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
+                                            />
+                                          </svg>
+                                          {doc.links.length}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-6 px-6">
+                            <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+                              <svg
+                                className="w-4 h-4 text-gray-300"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                              {doc.date}
+                            </div>
+                          </td>
+
+                          {/* ✅ ส่วนงานแบบสี (Updated) */}
+                          <td className="py-6 px-6">
+                            <span
+                              className={`inline-flex items-center justify-center px-3 py-1 rounded-lg text-xs font-bold border transition-colors cursor-default ${getDeptBadgeStyle(
+                                doc.dept
+                              )}`}
+                            >
+                              {doc.dept}
+                            </span>
+                          </td>
+
+                          <td className="py-6 px-8 text-right">
+                            <button
+                              onClick={() => setSelectedDocument(doc)}
+                              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:border-[#ED1C24] hover:shadow-md transition-all duration-300 transform group-hover:scale-110 ml-auto"
+                              title="ดูรายละเอียด"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ✅ Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-between items-center p-6 border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold text-gray-600 hover:text-[#ED1C24] hover:border-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      ก่อนหน้า
+                    </button>
+                    <div className="text-sm font-bold text-gray-500">
+                      หน้า <span className="text-[#ED1C24]">{currentPage}</span>{" "}
+                      จาก {totalPages}
+                    </div>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold text-gray-600 hover:text-[#ED1C24] hover:border-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* --------------------------------------------------------------------------------
-         SECTION: SERVICES (GRID) - UNIFIED HEADER
-      -------------------------------------------------------------------------------- */}
+      {/* SECTION: SERVICES */}
       <section
         id="hub-links"
         className="py-24 px-6 bg-[#FAFAFA] border-t border-gray-100"
@@ -916,9 +1288,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------------------------------
-         SECTION: NEWS - UNIFIED HEADER
-      -------------------------------------------------------------------------------- */}
+      {/* SECTION: NEWS */}
       <section
         id="news"
         className="py-24 px-6 bg-white border-t border-gray-100 relative overflow-hidden"
@@ -966,30 +1336,23 @@ export default function Home() {
                 key={idx}
                 className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 border border-gray-100 flex flex-col h-full hover:-translate-y-1"
               >
-                <div className="h-56 bg-gray-100 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-gray-400">
-                    <svg
-                      className="w-12 h-12 opacity-30"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-                  <div className="absolute bottom-4 left-4 right-4 text-white">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">
-                      <span className="w-2 h-2 rounded-full bg-[#ED1C24]"></span>
-                      {news.author}
+                {/* --- ส่วนรูปภาพ (แก้ไขใหม่) --- */}
+                <div className="h-56 bg-gray-100 relative overflow-hidden group-hover:scale-105 transition-transform duration-700">
+                  {/* เรียกใช้ฟังก์ชัน SVG ตาม ID */}
+                  {getNewsCover(news.id)}
+
+                  {/* Overlay Gradient เพื่อให้อ่านตัวหนังสือด้านล่างรูปชัดขึ้น */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-white/90 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm">
+                        {news.author}
+                      </span>
                     </div>
                   </div>
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl text-center shadow-lg">
+
+                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl text-center shadow-lg border border-white/50">
                     <span className="block text-xl font-black text-[#ED1C24] leading-none">
                       {news.date}
                     </span>
@@ -998,7 +1361,9 @@ export default function Home() {
                     </span>
                   </div>
                 </div>
-                <div className="p-8 flex flex-col flex-1">
+
+                {/* --- ส่วนเนื้อหา (คงเดิม) --- */}
+                <div className="p-8 flex flex-col flex-1 relative bg-white">
                   <h4 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-[#ED1C24] transition-colors cursor-pointer">
                     {news.title}
                   </h4>
@@ -1030,9 +1395,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --------------------------------------------------------------------------------
-         FOOTER
-      -------------------------------------------------------------------------------- */}
+      {/* FOOTER */}
       <footer className="bg-white text-gray-600 py-16 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-12">
@@ -1159,8 +1522,8 @@ export default function Home() {
                     </svg>
                   </div>
                   <span className="leading-relaxed mt-1">
-                    เลขที่ 123 ถนนราชวิถี ตำบลพระปฐมเจดีย์ <br />{" "}
-                    อำเภอเมืองนครปฐม จังหวัดนครปฐม 73000
+                    54/17 หมู่ 1 ถนนพหลโยธิน ตำบลนครสวรรค์ออก <br />{" "}
+                    อำเภอเมืองนครสวรรค์ จังหวัดนครสวรรค์ 60000
                   </span>
                 </li>
                 <li className="flex items-center gap-4">
@@ -1180,9 +1543,9 @@ export default function Home() {
                     </svg>
                   </div>
                   <span className="font-bold text-gray-800 text-lg">
-                    0-3425-XXXX{" "}
+                    056-255262{" "}
                     <span className="text-xs text-gray-400 font-normal block">
-                      (งานอำนวยการ)
+                      (ส่วนอำนวยการและบุคคล)
                     </span>
                   </span>
                 </li>
@@ -1211,10 +1574,12 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* --------------------------------------------------------------------------------
-         MODALS (DOCUMENTS, HUB & CONTACT)
-      -------------------------------------------------------------------------------- */}
-      {(selectedHub || isContactOpen || selectedDocument) && (
+      {/* MODALS */}
+      {(selectedHub ||
+        isContactOpen ||
+        selectedDocument ||
+        isLoginOpen ||
+        isWelcomeOpen) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
@@ -1222,22 +1587,196 @@ export default function Home() {
               setSelectedHub(null);
               setIsContactOpen(false);
               setSelectedDocument(null);
+              setIsLoginOpen(false);
+              // Note: Welcome popup might force click on button to close, or allow bg click.
+              // Here allowing bg click to close it too for usability.
+              setIsWelcomeOpen(false);
             }}
           ></div>
 
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="absolute top-4 right-4 z-20">
+          {/* ✅ WELCOME POPUP MODAL (ใหม่) */}
+          {isWelcomeOpen && (
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-[120] animate-fade-in-up overflow-hidden text-center border-4 border-white">
+              {/* Header Gradient */}
+              <div className="bg-gradient-to-br from-[#ED1C24] to-rose-600 p-8 pb-12 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-black opacity-10 rounded-full -ml-10 -mb-10"></div>
+                <h2 className="text-2xl font-black text-white relative z-10 mb-2">
+                  ประกาศจากทีมพัฒนา
+                </h2>
+                <p className="text-red-100 text-sm font-medium relative z-10 opacity-90">
+                  System Notification
+                </p>
+              </div>
+
+              {/* Avatar SVG Section - FAG^2 Team */}
+              <div className="relative -mt-10 px-6">
+                <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+                  <svg className="w-full h-32" viewBox="0 0 400 150">
+                    {/* Frame (Male) */}
+                    <g transform="translate(50, 75)">
+                      <circle cx="0" cy="0" r="30" fill="#E5E7EB" />
+                      <path
+                        d="M-30 35 Q0 50 30 35 V45 H-30 Z"
+                        fill="#374151"
+                      />{" "}
+                      {/* Body */}
+                      <circle cx="0" cy="0" r="28" fill="#F3F4F6" />{" "}
+                      {/* Face */}
+                      <path d="M-28 -10 Q0 -40 28 -10" fill="#1F2937" />{" "}
+                      {/* Short Hair */}
+                      <circle cx="-10" cy="5" r="3" fill="#374151" />
+                      <circle cx="10" cy="5" r="3" fill="#374151" />
+                      <path
+                        d="M-10 15 Q0 25 10 15"
+                        stroke="#374151"
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                      <text
+                        x="0"
+                        y="55"
+                        fontSize="12"
+                        textAnchor="middle"
+                        fill="#6B7280"
+                        fontWeight="bold"
+                      >
+                        Frame
+                      </text>
+                    </g>
+
+                    {/* Aum (Female) - Highlighted */}
+                    <g transform="translate(150, 75)">
+                      <circle cx="0" cy="0" r="32" fill="#FECACA" />{" "}
+                      {/* Pink/Red Aura */}
+                      <path
+                        d="M-30 35 Q0 50 30 35 V45 H-30 Z"
+                        fill="#BE185D"
+                      />{" "}
+                      {/* Body */}
+                      <circle cx="0" cy="0" r="28" fill="#FFF1F2" />{" "}
+                      {/* Face */}
+                      {/* Long Hair */}
+                      <path
+                        d="M-30 0 Q-35 40 -20 45 L-25 -5 Q0 -45 25 -5 L20 45 Q35 40 30 0 Z"
+                        fill="#4B5563"
+                      />
+                      <circle cx="-10" cy="5" r="3" fill="#374151" />
+                      <circle cx="10" cy="5" r="3" fill="#374151" />
+                      <path
+                        d="M-10 15 Q0 25 10 15"
+                        stroke="#BE185D"
+                        strokeWidth="2"
+                        fill="none"
+                      />{" "}
+                      {/* Pink Smile */}
+                      <text
+                        x="0"
+                        y="55"
+                        fontSize="12"
+                        textAnchor="middle"
+                        fill="#DB2777"
+                        fontWeight="bold"
+                      >
+                        Aum
+                      </text>
+                    </g>
+
+                    {/* Game (Male) */}
+                    <g transform="translate(250, 75)">
+                      <circle cx="0" cy="0" r="30" fill="#E5E7EB" />
+                      <path d="M-30 35 Q0 50 30 35 V45 H-30 Z" fill="#374151" />
+                      <circle cx="0" cy="0" r="28" fill="#F3F4F6" />
+                      <path d="M-25 -15 Q0 -45 25 -15" fill="#1F2937" />
+                      <circle cx="-10" cy="5" r="3" fill="#374151" />
+                      <circle cx="10" cy="5" r="3" fill="#374151" />
+                      <path
+                        d="M-10 15 Q0 25 10 15"
+                        stroke="#374151"
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                      <text
+                        x="0"
+                        y="55"
+                        fontSize="12"
+                        textAnchor="middle"
+                        fill="#6B7280"
+                        fontWeight="bold"
+                      >
+                        Game
+                      </text>
+                    </g>
+
+                    {/* Game (Male) */}
+                    <g transform="translate(350, 75)">
+                      <circle cx="0" cy="0" r="30" fill="#E5E7EB" />
+                      <path d="M-30 35 Q0 50 30 35 V45 H-30 Z" fill="#374151" />
+                      <circle cx="0" cy="0" r="28" fill="#F3F4F6" />
+                      <path d="M-25 -15 Q0 -45 25 -15" fill="#1F2937" />
+                      <circle cx="-10" cy="5" r="3" fill="#374151" />
+                      <circle cx="10" cy="5" r="3" fill="#374151" />
+                      <path
+                        d="M-10 15 Q0 25 10 15"
+                        stroke="#374151"
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                      <text
+                        x="0"
+                        y="55"
+                        fontSize="12"
+                        textAnchor="middle"
+                        fill="#6B7280"
+                        fontWeight="bold"
+                      >
+                        Game
+                      </text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-8 pt-4">
+                <div className="inline-block px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold mb-4 border border-yellow-200">
+                  🚧 Work In Progress
+                </div>
+                <p className="text-gray-700 text-base leading-relaxed mb-6 font-medium">
+                  เว็บไซต์นี้อยู่ระหว่างการพัฒนา โดยฟังก์ชันหลักเสร็จสมบูรณ์แล้ว
+                  และขณะนี้กำลังอยู่ในขั้นตอนการปรับปรุงรายละเอียดส่วนสุดท้าย
+                </p>
+
+                <div className="border-t border-gray-100 pt-4 mb-6">
+                  <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2">
+                    Developed & Designed by
+                  </p>
+                  <p className="text-lg font-black text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-gray-500">
+                    Frame AUM GAME GAME (FAG<sup>2</sup>)
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsWelcomeOpen(false)}
+                  className="w-full py-3 bg-[#ED1C24] hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 hover:shadow-red-300 transition-all transform hover:-translate-y-0.5"
+                >
+                  รับทราบ
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* LOGIN OVERLAY (เดิม) */}
+          {isLoginOpen && (
+            <div className="fixed inset-0 z-[110] bg-[#FAFAFA] flex items-center justify-center animate-fade-in-up">
+              <div className="absolute inset-0 bg-grid-slate [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
+
               <button
-                onClick={() => {
-                  setSelectedHub(null);
-                  setIsContactOpen(false);
-                  setSelectedDocument(null);
-                }}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                onClick={() => setIsLoginOpen(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-white border border-gray-200 hover:bg-red-50 hover:text-red-500 transition-colors z-50 shadow-sm"
               >
                 <svg
-                  className="w-5 h-5 text-gray-500"
+                  className="w-6 h-6"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1250,248 +1789,32 @@ export default function Home() {
                   />
                 </svg>
               </button>
-            </div>
 
-            {/* 1. DOCUMENT MODAL (หนังสือเวียน) */}
-            {selectedDocument && (
-              <>
-                <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-6 pt-8 pb-4">
-                  <span className="inline-block px-2 py-1 bg-red-50 text-[#ED1C24] text-[10px] font-bold rounded uppercase mb-2">
-                    {selectedDocument.type}
-                  </span>
-                  <h3 className="text-xl font-bold text-gray-900 leading-snug">
-                    {selectedDocument.title}
-                  </h3>
-                  <p className="text-gray-500 text-sm mt-1">
-                    เลขที่หนังสือ:{" "}
-                    <span className="font-semibold text-gray-700">
-                      {selectedDocument.bookNo}
-                    </span>
-                  </p>
-                </div>
-                <div className="p-6 overflow-y-auto custom-scrollbar">
-                  <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                    <div>
-                      <span className="block text-gray-400 text-xs uppercase mb-1">
-                        ลงวันที่
-                      </span>
-                      <span className="font-semibold text-gray-800">
-                        {selectedDocument.date}
-                      </span>
+              <div className="w-full max-w-4xl grid md:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative z-20 m-4">
+                <div className="p-8 md:p-12 flex flex-col justify-center">
+                  <div className="mb-8">
+                    <div className="w-12 h-12 bg-[#ED1C24] text-white flex items-center justify-center rounded-xl shadow-lg shadow-red-200 mb-4">
+                      <svg
+                        className="w-7 h-7"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
+                      </svg>
                     </div>
-                    <div>
-                      <span className="block text-gray-400 text-xs uppercase mb-1">
-                        ส่วนงาน
-                      </span>
-                      <span className="font-semibold text-gray-800">
-                        {selectedDocument.dept}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-gray-400 text-xs uppercase mb-1">
-                        เบอร์โทรศัพท์
-                      </span>
-                      <span className="font-semibold text-[#ED1C24]">
-                        {selectedDocument.phone}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <h4 className="text-sm font-bold text-gray-900 mb-2 border-l-4 border-[#ED1C24] pl-3">
-                      รายละเอียด
-                    </h4>
-                    <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
-                      {selectedDocument.details}
+                    <h2 className="text-3xl font-black text-gray-900 mb-2">
+                      เข้าสู่ระบบ
+                    </h2>
+                    <p className="text-gray-500 text-sm">
+                      ระบบบริหารจัดการภายใน สำนักงานไปรษณีย์เขต 6
                     </p>
                   </div>
 
-                  {/* Links */}
-                  {selectedDocument.links &&
-                    selectedDocument.links.length > 0 && (
-                      <div className="mb-6">
-                        <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
-                            />
-                          </svg>
-                          ลิงก์แนบ
-                        </h4>
-                        <ul className="space-y-2">
-                          {selectedDocument.links.map(
-                            (link: any, i: number) => (
-                              <li key={i}>
-                                <a
-                                  href={link.url}
-                                  className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                  {link.name}
-                                </a>
-                              </li>
-                            )
-                          )}
-                        </ul>
-                      </div>
-                    )}
-
-                  {/* Files */}
-                  {selectedDocument.files &&
-                    selectedDocument.files.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                            />
-                          </svg>
-                          ไฟล์เอกสาร
-                        </h4>
-                        <div className="space-y-2">
-                          {selectedDocument.files.map(
-                            (file: any, i: number) => (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group cursor-pointer"
-                              >
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                  </div>
-                                  <div className="flex flex-col truncate">
-                                    <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
-                                      {file.name}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400">
-                                      {file.size}
-                                    </span>
-                                  </div>
-                                </div>
-                                <svg
-                                  className="w-5 h-5 text-gray-300 group-hover:text-[#ED1C24]"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                  />
-                                </svg>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-                </div>
-              </>
-            )}
-
-            {/* 2. CONTACT MODAL */}
-            {isContactOpen && (
-              <div className="p-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg
-                      className="w-8 h-8"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold mb-4 text-gray-900">
-                    เบอร์โทรศัพท์ติดต่อ
-                  </h3>
-                  <div className="space-y-3 text-left">
-                    {contactList.map((c, i) => (
-                      <div
-                        key={i}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors group"
-                      >
-                        <span className="font-bold text-gray-700 text-sm group-hover:text-red-700">
-                          {c.name}
-                        </span>
-                        <a
-                          href={`tel:${c.phone}`}
-                          className="text-[#ED1C24] font-bold text-sm bg-white px-3 py-1 rounded-lg shadow-sm"
-                        >
-                          {c.phone}
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 3. HUB LINKS MODAL */}
-            {selectedHub && (
-              <div className="p-6">
-                <div className="text-center">
-                  <div
-                    className={`w-16 h-16 ${
-                      selectedHub.bg
-                    } bg-opacity-20 text-${
-                      selectedHub.bg.split("-")[2]
-                    }-600 rounded-full flex items-center justify-center mx-auto mb-4`}
-                  >
-                    <div className="w-8 h-8">{selectedHub.icon}</div>
-                  </div>
-                  <h3 className="text-xl font-bold mb-1 text-gray-900">
-                    {selectedHub.name}
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-6">
-                    {selectedHub.code}
-                  </p>
-                  <div className="space-y-2">
-                    {selectedHub.links.map((link: any, i: number) => (
-                      <a
-                        key={i}
-                        href={link.url}
-                        className="block w-full p-3 bg-gray-50 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold transition-colors text-sm flex justify-between items-center group"
-                      >
-                        {link.title}
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    {loginError && (
+                      <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-xl flex items-center gap-2 animate-pulse">
                         <svg
-                          className="w-4 h-4 text-gray-300 group-hover:text-red-400"
+                          className="w-4 h-4"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -1500,16 +1823,426 @@ export default function Home() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M9 5l7 7-7 7"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
+                        {loginError}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                        รหัสพนักงาน / Username
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-[#ED1C24] focus:ring-2 focus:ring-red-100 outline-none transition-all text-sm font-medium text-gray-900"
+                        placeholder="admin@post6.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                        รหัสผ่าน / Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-[#ED1C24] focus:ring-2 focus:ring-red-100 outline-none transition-all text-sm font-medium text-gray-900"
+                        placeholder="•••••••• (1234)"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded text-[#ED1C24] focus:ring-red-500"
+                        />
+                        <span className="text-gray-500">จำการเข้าสู่ระบบ</span>
+                      </label>
+                      <a
+                        href="#"
+                        className="text-[#ED1C24] font-bold hover:underline"
+                      >
+                        ลืมรหัสผ่าน?
                       </a>
-                    ))}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full py-3 bg-[#ED1C24] text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2
+                        ${
+                          isLoading
+                            ? "opacity-70 cursor-not-allowed"
+                            : "hover:shadow-red-300 hover:-translate-y-1"
+                        }
+                      `}
+                    >
+                      {isLoading ? (
+                        <>
+                          <svg
+                            className="animate-spin h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          กำลังตรวจสอบ...
+                        </>
+                      ) : (
+                        "เข้าสู่ระบบ"
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+                    <p className="text-xs text-gray-400">
+                      หากพบปัญหาการใช้งาน กรุณาติดต่อ <br />
+                      <span className="font-bold text-gray-600">
+                        ส่วนเทคโนโลยีสารสนเทศ (IT Support)
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="hidden md:flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden p-12 text-center">
+                  <div className="absolute inset-0 bg-grid-slate opacity-50"></div>
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-red-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-100 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2"></div>
+
+                  <div className="relative z-10">
+                    <div className="w-32 h-32 mx-auto bg-white rounded-full flex items-center justify-center shadow-xl mb-6 animate-float-card-1">
+                      <svg
+                        className="w-16 h-16 text-[#ED1C24]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">
+                      Secure Access
+                    </h3>
+                    <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
+                      ระบบรักษาความปลอดภัยข้อมูลสารสนเทศ <br />
+                      มาตรฐานสากล เพื่อความปลอดภัยสูงสุด
+                    </p>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* DOCUMENT MODAL (เดิม) */}
+          {!isLoginOpen && !isWelcomeOpen && (
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={() => {
+                    setSelectedHub(null);
+                    setIsContactOpen(false);
+                    setSelectedDocument(null);
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {selectedDocument && (
+                <>
+                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-6 pt-8 pb-4">
+                    <span className="inline-block px-2 py-1 bg-red-50 text-[#ED1C24] text-[10px] font-bold rounded uppercase mb-2">
+                      {selectedDocument.type}
+                    </span>
+                    <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                      {selectedDocument.title}
+                    </h3>
+                    <p className="text-gray-500 text-sm mt-1">
+                      เลขที่หนังสือ:{" "}
+                      <span className="font-semibold text-gray-700">
+                        {selectedDocument.bookNo}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="p-6 overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                      <div>
+                        <span className="block text-gray-400 text-xs uppercase mb-1">
+                          ลงวันที่
+                        </span>
+                        <span className="font-semibold text-gray-800">
+                          {selectedDocument.date}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-gray-400 text-xs uppercase mb-1">
+                          ส่วนงาน
+                        </span>
+                        <span className="font-semibold text-gray-800">
+                          {selectedDocument.dept}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-gray-400 text-xs uppercase mb-1">
+                          เบอร์โทรศัพท์
+                        </span>
+                        <span className="font-semibold text-[#ED1C24]">
+                          {selectedDocument.phone}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h4 className="text-sm font-bold text-gray-900 mb-2 border-l-4 border-[#ED1C24] pl-3">
+                        รายละเอียด
+                      </h4>
+                      <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
+                        {selectedDocument.details}
+                      </p>
+                    </div>
+
+                    {selectedDocument.links &&
+                      selectedDocument.links.length > 0 && (
+                        <div className="mb-6">
+                          <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
+                              />
+                            </svg>
+                            ลิงก์แนบ
+                          </h4>
+                          <ul className="space-y-2">
+                            {selectedDocument.links.map(
+                              (link: any, i: number) => (
+                                <li key={i}>
+                                  <a
+                                    href={link.url}
+                                    target="_blank"
+                                    className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                    {link.name}
+                                  </a>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                    {selectedDocument.files &&
+                      selectedDocument.files.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                              />
+                            </svg>
+                            ไฟล์เอกสาร
+                          </h4>
+                          <div className="space-y-2">
+                            {selectedDocument.files.map(
+                              (file: any, i: number) => (
+                                <a
+                                  key={i}
+                                  href={file.url}
+                                  target="_blank"
+                                  className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group cursor-pointer block"
+                                >
+                                  <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                    </div>
+                                    <div className="flex flex-col truncate">
+                                      <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
+                                        {file.name}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400">
+                                        {file.size}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <svg
+                                    className="w-5 h-5 text-gray-300 group-hover:text-[#ED1C24]"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                    />
+                                  </svg>
+                                </a>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </>
+              )}
+
+              {isContactOpen && (
+                <div className="p-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg
+                        className="w-8 h-8"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold mb-4 text-gray-900">
+                      เบอร์โทรศัพท์ติดต่อ
+                    </h3>
+                    <div className="space-y-3 text-left">
+                      {contactList.map((c, i) => (
+                        <div
+                          key={i}
+                          className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors group"
+                        >
+                          <span className="font-bold text-gray-700 text-sm group-hover:text-red-700">
+                            {c.name}
+                          </span>
+                          <a
+                            href={`tel:${c.phone}`}
+                            className="text-[#ED1C24] font-bold text-sm bg-white px-3 py-1 rounded-lg shadow-sm"
+                          >
+                            {c.phone}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedHub && (
+                <div className="p-6">
+                  <div className="text-center">
+                    <div
+                      className={`w-16 h-16 ${
+                        selectedHub.bg
+                      } bg-opacity-20 text-${
+                        selectedHub.bg.split("-")[2]
+                      }-600 rounded-full flex items-center justify-center mx-auto mb-4`}
+                    >
+                      <div className="w-8 h-8">{selectedHub.icon}</div>
+                    </div>
+                    <h3 className="text-xl font-bold mb-1 text-gray-900">
+                      {selectedHub.name}
+                    </h3>
+                    <p className="text-gray-500 text-sm mb-6">
+                      {selectedHub.code}
+                    </p>
+                    <div className="space-y-2">
+                      {selectedHub.links.map((link: any, i: number) => (
+                        <a
+                          key={i}
+                          href={link.url}
+                          className="block w-full p-3 bg-gray-50 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold transition-colors text-sm flex justify-between items-center group"
+                        >
+                          {link.title}
+                          <svg
+                            className="w-4 h-4 text-gray-300 group-hover:text-red-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
