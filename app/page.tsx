@@ -356,7 +356,6 @@ export default function Home() {
     item: any
   ) => {
     if (item.dropdown) {
-      // If item has dropdown, do nothing (hover handles it) or toggle
       e.preventDefault();
       return;
     }
@@ -387,7 +386,6 @@ export default function Home() {
   // --- Data ---
   const navItems = [
     { name: "หน้าหลัก", href: "/", active: true },
-    // ✅ เมนู Dashboard
     { name: "Dashboard", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
@@ -535,10 +533,52 @@ export default function Home() {
           background-size: 200% auto;
           animation: shimmer 5s linear infinite;
         }
+
+        /* ✅ UPDATED: Ken Burns Effect เร็วขึ้น (15s) */
+        @keyframes ken-burns {
+          0% {
+            transform: scale(1) translate(0, 0);
+          }
+          100% {
+            transform: scale(1.15) translate(-1%, -1%);
+          }
+        }
+        .animate-ken-burns {
+          animation: ken-burns 15s ease-out infinite alternate;
+        }
+
+        /* ✅ UPDATED: Fade In Up เร็วขึ้น (0.6s) */
+        @keyframes fade-in-up {
+          0% {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          opacity: 0;
+        }
+
+        /* ✅ UPDATED: Delay ไวขึ้น */
+        .delay-100 {
+          animation-delay: 0.1s;
+        }
+        .delay-200 {
+          animation-delay: 0.2s;
+        }
+        .delay-300 {
+          animation-delay: 0.3s;
+        }
+        .delay-500 {
+          animation-delay: 0.4s;
+        }
       `}</style>
 
       {/* NAVBAR */}
-      {/* NAVBAR (UPDATED: Full Width & Spacing) */}
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
@@ -593,7 +633,7 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* --- MENU ITEMS (with Dropdown Support) --- */}
+          {/* --- MENU ITEMS --- */}
           <div
             className={`hidden md:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
@@ -616,7 +656,6 @@ export default function Home() {
                   }`}
                 >
                   {item.name}
-                  {/* แสดงลูกศรลงถ้ามี Dropdown */}
                   {item.dropdown && (
                     <svg
                       className="w-3 h-3 opacity-70 group-hover:translate-y-0.5 transition-transform"
@@ -655,69 +694,59 @@ export default function Home() {
           </div>
         </div>
       </nav>
-      {/* HERO SECTION (UPDATED: Full Screen Image & Centered Text) */}
+
+      {/* HERO SECTION (UPDATED: All White Text) */}
       <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
-        {/* --- ส่วนพื้นหลังรูปภาพเต็มจอ (Full Screen Background Image) --- */}
+        {/* --- ส่วนพื้นหลังรูปภาพเต็มจอ --- */}
         <div className="absolute inset-0 z-0">
-          {/* รูปภาพ Background */}
-          {/* ✅ แนะนำ: ใช้รูปภาพที่มีความละเอียดสูง (เช่น 1920x1080 ขึ้นไป) 
-             เพื่อให้คมชัดบนจอใหญ่
-          */}
           <img
-            src="/hero_img.jpg" // 👈 แก้ตรงนี้เป็นชื่อไฟล์รูปของคุณ
-            alt="Logistics Operations Center Background"
-            className="w-full h-full object-cover scale-105 animate-slow-zoom"
+            src="/hero_img.jpg"
+            alt="Regional Postal Bureau Region 6 Office"
+            className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
           />
 
-          {/* Dark Overlay: ชั้นสีดำโปร่งใสทับรูปภาพ เพื่อให้ข้อความสีขาวอ่านง่ายขึ้น */}
-          {/* ปรับค่า opacity (เช่น bg-black/60, bg-black/70) เพื่อเพิ่ม/ลดความมืด */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/50"></div>
+          {/* Dark Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80"></div>
 
-          {/* (Optional) Texture overlay สำหรับเพิ่มรายละเอียดเล็กน้อย */}
-          <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:linear-gradient(to_bottom,white,transparent)]"></div>
+          {/* Overlay Texture */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
         </div>
 
-        {/* --- ส่วนเนื้อหาข้อความตรงกลาง (Centered Text Content) --- */}
-        <div className="container relative z-20 max-w-5xl mx-auto px-6 flex flex-col items-center justify-center text-center space-y-8 animate-fade-in-up mt-16">
-          {/* Badge: ปรับสไตล์ให้โปร่งใสและเป็นสีขาว (Glassmorphism) */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg cursor-default transition-transform hover:scale-105">
+        {/* --- ส่วนเนื้อหาข้อความตรงกลาง --- */}
+        <div className="container relative z-20 max-w-5xl mx-auto px-6 flex flex-col items-center justify-center text-center space-y-8 mt-16">
+          {/* Badge */}
+          <div className="animate-fade-in-up delay-100 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl cursor-default transition-transform hover:scale-105 hover:bg-white/20">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-50 opacity-75"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-[#ED1C24]"></span>
             </span>
-            <span className="text-xs font-bold text-white tracking-wide uppercase">
+            <span className="text-xs font-bold text-white tracking-widest uppercase drop-shadow-md">
               Thailand Post Sector 6
-            </span>
-            <span className="w-px h-4 bg-white/30 mx-1"></span>
-            <span className="text-xs font-bold text-white">
-              Digital Transformation
             </span>
           </div>
 
-          {/* Main Title: เปลี่ยนเป็นสีขาว และปรับขนาดให้ใหญ่ขึ้นเล็กน้อย */}
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-lg">
+          {/* Main Title: Changed to pure white */}
+          <div className="space-y-2 animate-fade-in-up delay-200">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl">
               ขับเคลื่อนอนาคต <br />
-              {/* ใช้ text-transparent bg-clip-text เหมือนเดิม แต่ปรับ gradient ให้สว่างขึ้นนิดหน่อยเพื่อให้เด่นบนพื้นมืด */}
+              {/* ✅ เปลี่ยนเป็น text-white ล้วน */}
               <span className="text-white">Information</span> <br />
-              <span>Logistics</span>
+              <span className="text-white">Logistics</span>
             </h1>
           </div>
 
-          {/* Description: เปลี่ยนเป็นสีเทาอ่อน/ขาว */}
-          <p className="text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-md">
-            ก้าวสู่การเป็นศูนย์กลางโลจิสติกส์สารสนเทศที่แข็งแกร่ง
-            ผสานความยั่งยืน{" "}
-            <span className="text-white font-bold underline decoration-[#ED1C24]/50 decoration-2 underline-offset-4">
-              (Sustainability)
-            </span>{" "}
-            กับนวัตกรรมดิจิทัล เชื่อมโยงคนไทยและเศรษฐกิจด้วยบริการครบวงจร
+          {/* Description: Changed to pure white */}
+          {/* ✅ เปลี่ยนเป็น text-white */}
+          <p className="animate-fade-in-up delay-300 text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-lg">
+            ยกระดับการบริหารงานไปรษณีย์ด้วยนวัตกรรมดิจิทัล{" "}
+            <br className="hidden md:block" />
+            เชื่อมโยงข้อมูล ผสานเครือข่าย เพื่อบริการที่เหนือกว่า
           </p>
 
-          {/* (Optional) ลูกศรชี้ลง เพื่อบอกว่ามีเนื้อหาด้านล่าง */}
-          <div className="absolute bottom-10 animate-bounce">
+          {/* ลูกศรชี้ลง */}
+          <div className="absolute bottom-10 animate-bounce delay-500 opacity-80">
             <svg
-              className="w-8 h-8 text-white"
+              className="w-10 h-10 text-white drop-shadow-md"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -733,10 +762,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD (LOOKER STUDIO) - MOVED TO TOP & FULL WIDTH */}
+      {/* ✅ SECTION: DASHBOARD */}
       <section
         id="dashboard"
-        // ✅ พื้นหลัง Gradient แบบเดียวกับหนังสือเวียน
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
       >
         <div className="w-full px-4 md:px-12">
@@ -781,7 +809,6 @@ export default function Home() {
           </div>
 
           {/* Iframe Container */}
-          {/* ✅ ปรับความสูงเป็น h-screen (เต็มความสูงหน้าจอ) และเพิ่มเงา Shadow ให้เด่น */}
           <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-200 overflow-hidden relative w-full h-screen transition-all duration-300">
             <iframe
               key={activeDashboard}
@@ -795,8 +822,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECTION: CIRCULAR LETTERS (หนังสือเวียน) - FINAL VERSION */}
-      {/* SECTION: CIRCULAR LETTERS (หนังสือเวียน) - FINAL CLEAN VERSION */}
+      {/* SECTION: CIRCULAR LETTERS */}
       <section
         id="circular"
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
@@ -816,7 +842,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* ✅ UNIFIED CARD CONTAINER */}
+          {/* CARD CONTAINER */}
           <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
             {/* --- TOOLBAR / SEARCH SECTION --- */}
             <div className="p-5 md:p-6 bg-gray-50 border-b border-gray-200 flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -946,7 +972,6 @@ export default function Home() {
                   <table className="w-full min-w-[1000px] border-collapse">
                     <thead className="bg-white border-b border-gray-200">
                       <tr>
-                        {/* ลบคอลัมน์สุดท้ายออก */}
                         <th
                           scope="col"
                           className="py-5 px-6 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-center w-20 bg-gray-50/50"
@@ -984,7 +1009,6 @@ export default function Home() {
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex flex-col gap-1">
-                              {/* ✅ Clickable Title Button (ยังคงกดได้) */}
                               <button
                                 onClick={() => setSelectedDocument(doc)}
                                 className="text-left text-sm font-bold text-gray-900 group-hover:text-[#ED1C24] hover:underline transition-all line-clamp-2 focus:outline-none"
@@ -1085,10 +1109,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECTION: NEWS - NEW STYLE */}
+      {/* SECTION: NEWS */}
       <section
         id="news"
-        // ✅ พื้นหลัง Gradient และ Overflow Hidden
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200 relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 w-96 h-96 bg-gray-50 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -1132,7 +1155,6 @@ export default function Home() {
             {newsItems.map((news, idx) => (
               <article
                 key={idx}
-                // ✅ เพิ่มเงา Shadow-xl และ Border ให้การ์ดข่าวเด่นขึ้น
                 className="group bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-200 hover:shadow-2xl hover:shadow-gray-300/50 transition-all duration-300 flex flex-col h-full hover:-translate-y-2"
               >
                 {/* --- ส่วนรูปภาพ --- */}
@@ -1380,7 +1402,7 @@ export default function Home() {
             }}
           ></div>
 
-          {/* LOGIN OVERLAY (เดิม) */}
+          {/* LOGIN OVERLAY */}
           {isLoginOpen && (
             <div className="fixed inset-0 z-[110] bg-[#FAFAFA] flex items-center justify-center animate-fade-in-up">
               <div className="absolute inset-0 bg-grid-slate [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
@@ -1572,7 +1594,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* DOCUMENT MODAL (เดิม) */}
+          {/* DOCUMENT MODAL */}
           {!isLoginOpen && (
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
               <div className="absolute top-4 right-4 z-20">
