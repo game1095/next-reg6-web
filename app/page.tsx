@@ -700,7 +700,7 @@ export default function Home() {
         {/* --- ส่วนพื้นหลังรูปภาพเต็มจอ --- */}
         <div className="absolute inset-0 z-0">
           <img
-            src="/hero_img.jpg"
+            src="/hero_img3.jpg"
             alt="Regional Postal Bureau Region 6 Office"
             className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
           />
@@ -927,21 +927,21 @@ export default function Home() {
             </div>
 
             {/* --- TABLE CONTENT --- */}
-            <div className="relative min-h-[400px]">
+            <div className="relative min-h-[400px] bg-transparent p-2 md:p-4 rounded-b-3xl">
               {isLoadingDocs ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 gap-4">
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 gap-4 rounded-3xl">
                   <div className="relative">
                     <div className="w-12 h-12 border-4 border-gray-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
                   </div>
                   <span className="text-gray-500 font-medium animate-pulse text-sm">
-                    กำลังโหลด...
+                    กำลังโหลดข้อมูล...
                   </span>
                 </div>
               ) : filteredDocs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white rounded-3xl shadow-sm border border-gray-100">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                     <svg
-                      className="w-8 h-8 text-gray-400"
+                      className="w-10 h-10 text-gray-300"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -954,7 +954,7 @@ export default function Home() {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900">
+                  <h3 className="text-xl font-bold text-gray-900">
                     ไม่พบเอกสาร
                   </h3>
                   <button
@@ -962,114 +962,159 @@ export default function Home() {
                       setSearchTerm("");
                       setFilterDept("");
                     }}
-                    className="mt-4 px-5 py-2 bg-[#ED1C24] text-white text-sm rounded-lg font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+                    className="mt-6 px-6 py-2.5 bg-[#ED1C24] text-white text-sm rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200"
                   >
-                    ล้างคำค้นหา
+                    ล้างคำค้นหาทั้งหมด
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1000px] border-collapse">
-                    <thead className="bg-white border-b border-gray-200">
+                <div className="overflow-x-auto pb-4 px-1">
+                  <table className="w-full min-w-[900px] border-separate border-spacing-y-3">
+                    <thead className="hidden md:table-header-group">
                       <tr>
-                        <th
-                          scope="col"
-                          className="py-5 px-6 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-center w-20 bg-gray-50/50"
-                        >
-                          ลำดับ
+                        {/* Col 1 Header */}
+                        <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-left pl-8 bg-gray-100 rounded-l-xl border-y border-l border-gray-200/50">
+                          หัวข้อเรื่อง / รายละเอียด
                         </th>
-                        <th
-                          scope="col"
-                          className="py-5 px-6 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-left"
-                        >
-                          หัวข้อเรื่อง
+                        {/* Col 2 Header */}
+                        <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-40 bg-gray-100 border-y border-gray-200/50">
+                          ประเภท / วันที่
                         </th>
-                        <th
-                          scope="col"
-                          className="py-5 px-6 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-left w-44"
-                        >
-                          วันที่ / ประเภท
-                        </th>
-                        <th
-                          scope="col"
-                          className="py-5 px-6 text-xs font-extrabold text-gray-500 uppercase tracking-wider text-center w-32"
-                        >
+                        {/* Col 3 Header */}
+                        <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-28 bg-gray-100 border-y border-gray-200/50">
                           ส่วนงาน
+                        </th>
+                        {/* Col 4 Header (Download) */}
+                        <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-28 bg-gray-100 rounded-r-xl border-y border-r border-gray-200/50">
+                          ดาวน์โหลด
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody>
                       {paginatedDocs.map((doc, index) => (
                         <tr
                           key={doc.id}
-                          className="group hover:bg-red-50/20 transition-colors duration-150"
+                          onClick={() => setSelectedDocument(doc)}
+                          className="group cursor-pointer transition-all duration-300 hover:-translate-y-1"
                         >
-                          <td className="py-4 px-6 text-center text-sm font-bold text-gray-500 bg-gray-50/30 group-hover:bg-transparent">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
-                          </td>
-                          <td className="py-4 px-6">
-                            <div className="flex flex-col gap-1">
-                              <button
-                                onClick={() => setSelectedDocument(doc)}
-                                className="text-left text-sm font-bold text-gray-900 group-hover:text-[#ED1C24] hover:underline transition-all line-clamp-2 focus:outline-none"
-                              >
-                                {doc.title}
-                              </button>
-
-                              <div className="flex items-center gap-3">
-                                <span className="text-[11px] text-gray-500 font-medium">
-                                  เลขที่:{" "}
-                                  <span className="text-gray-700">
+                          {/* Col 1: Title */}
+                          <td className="bg-white p-6 rounded-l-2xl shadow-sm group-hover:shadow-lg transition-all relative overflow-hidden">
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="flex items-start gap-4">
+                              <div className="flex-shrink-0 mt-1 hidden sm:block">
+                                <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-red-50 group-hover:text-[#ED1C24] transition-colors duration-300">
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <h4 className="text-base font-bold text-gray-800 group-hover:text-[#ED1C24] transition-colors line-clamp-2 leading-relaxed">
+                                  {doc.title}
+                                </h4>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
                                     {doc.bookNo}
                                   </span>
-                                </span>
-                                {(doc.files.length > 0 ||
-                                  doc.links.length > 0) && (
-                                  <div className="flex items-center gap-2">
-                                    {doc.files.length > 0 && (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-[10px] font-bold text-gray-600">
-                                        <svg
-                                          className="w-3 h-3"
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                        {doc.files.length}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
+                                  {(doc.files.length > 0 ||
+                                    doc.links.length > 0) && (
+                                    <span className="flex items-center gap-1 text-[10px] text-[#ED1C24] font-bold bg-red-50 px-2 py-0.5 rounded-full">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                        />
+                                      </svg>
+                                      มีเอกสาร
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-6">
-                            <div className="flex flex-col gap-1.5">
-                              <div className="text-sm font-medium text-gray-700">
-                                {doc.date}
-                              </div>
-                              <div className="flex items-center gap-1.5">
+
+                          {/* Col 2: Date & Type */}
+                          <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
+                                  doc.type === "ประกาศ"
+                                    ? "bg-red-50 text-red-600 border-red-100"
+                                    : doc.type === "คำสั่ง"
+                                    ? "bg-amber-50 text-amber-600 border-amber-100"
+                                    : "bg-blue-50 text-blue-600 border-blue-100"
+                                }`}
+                              >
                                 <span
-                                  className={`w-2 h-2 rounded-full ${doc.statusColor}`}
+                                  className={`w-1.5 h-1.5 rounded-full ${doc.statusColor}`}
                                 ></span>
-                                <span className="text-xs text-gray-500">
-                                  {doc.type}
-                                </span>
-                              </div>
+                                {doc.type}
+                              </span>
+                              <span className="text-xs font-semibold text-gray-500">
+                                {doc.date}
+                              </span>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-center">
+
+                          {/* Col 3: Department */}
+                          <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
                             <span
-                              className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold border ${getDeptBadgeStyle(
+                              className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
                                 doc.dept
                               )}`}
                             >
                               {doc.dept}
                             </span>
+                          </td>
+
+                          {/* Col 4: Download Button (UPDATED) */}
+                          <td className="bg-white p-4 align-middle text-center rounded-r-2xl shadow-sm group-hover:shadow-lg transition-all">
+                            {doc.files && doc.files.length > 0 ? (
+                              <a
+                                href={doc.files[0].url}
+                                download={doc.files[0].name}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) =>
+                                  e.stopPropagation()
+                                } /* ป้องกันไม่ให้คลิกแล้ว Modal เด้ง */
+                                className="w-10 h-10 rounded-xl bg-red-50 text-[#ED1C24] hover:bg-[#ED1C24] hover:text-white transition-all duration-300 flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 border border-red-100 hover:border-red-500"
+                                title={`ดาวน์โหลด: ${doc.files[0].name}`}
+                              >
+                                <svg
+                                  className="w-5 h-5"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                  />
+                                </svg>
+                              </a>
+                            ) : (
+                              <span className="text-gray-300 font-bold">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}
