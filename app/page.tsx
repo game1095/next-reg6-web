@@ -495,31 +495,31 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden relative">
-      {/* 🟢 SPLASH SCREEN (PRELOADER) */}
+      {/* 🟢 SPLASH SCREEN (PRELOADER) : รูปใหญ่ + นิ่ง (ไม่มี Effect) */}
       <div
         className={`fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
           isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
-        <div className="relative">
-          {/* Logo Animation */}
-          <div className="w-24 h-24 bg-[#ED1C24] rounded-3xl flex items-center justify-center text-white shadow-xl shadow-red-200 animate-bounce">
-            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
-            </svg>
-          </div>
-          <div className="absolute -bottom-4 left-0 right-0 h-4 bg-black/10 rounded-full blur-md animate-pulse"></div>
+        {/* --- ส่วนรูปภาพ --- */}
+        <div className="mb-8 relative">
+          <img
+            src="/loading_1.jpg"
+            alt="Loading Logo"
+            className="w-80 md:w-[500px] h-auto object-contain rounded-2xl shadow-2xl"
+          />
         </div>
 
-        <h2 className="mt-8 text-2xl font-black text-gray-900 tracking-tight">
+        {/* --- ส่วนข้อความ --- */}
+        <h2 className="mt-6 text-3xl font-black text-gray-900 tracking-tight">
           กำลังเข้าสู่ระบบ...
         </h2>
-        <p className="text-gray-400 text-sm mt-1 font-medium tracking-widest uppercase">
+        <p className="text-gray-400 text-sm mt-2 font-medium tracking-widest uppercase">
           Thailand Post Sector 6
         </p>
 
-        {/* Loading Bar */}
-        <div className="w-64 h-1.5 bg-gray-100 rounded-full mt-6 overflow-hidden relative">
+        {/* --- ส่วน Loading Bar --- */}
+        <div className="w-80 md:w-96 h-2 bg-gray-100 rounded-full mt-8 overflow-hidden relative">
           <div className="absolute top-0 left-0 h-full w-full bg-[#ED1C24] origin-left animate-[shimmer_2s_infinite]"></div>
           <div className="absolute top-0 left-0 h-full w-1/3 bg-white/30 blur-sm animate-[dash-flow_1.5s_infinite]"></div>
         </div>
