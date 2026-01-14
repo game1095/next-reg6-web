@@ -1,11 +1,15 @@
 "use client";
 import { supabase } from "@/lib/supabaseClient";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
   const router = useRouter();
+
+  // --- Global Loading State (SPLASH SCREEN) ---
+  const [isSiteReady, setIsSiteReady] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   // --- State ---
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -299,6 +303,26 @@ export default function Home() {
     fetchDocuments();
   }, []);
 
+  // --- LOGIC: Handle Site Ready (Splash Screen) ---
+  useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      if (!isSiteReady) {
+        console.warn("Forcing site load due to timeout");
+        setIsSiteReady(true);
+      }
+    }, 10000);
+    if (!isLoadingDocs && iframeLoaded) {
+      // เพิ่ม Delay เล็กน้อยเพื่อให้ Animation ลื่นไหล
+      const smoothDelay = setTimeout(() => {
+        setIsSiteReady(true);
+        clearTimeout(safetyTimeout);
+      }, 800);
+      return () => clearTimeout(smoothDelay);
+    }
+
+    return () => clearTimeout(safetyTimeout);
+  }, [isLoadingDocs, iframeLoaded]);
+
   // --- Filter Logic ---
   const filteredDocs = circularLetters.filter((doc) => {
     const term = searchTerm.toLowerCase();
@@ -470,7 +494,41 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden relative">
+      {/* 🟢 SPLASH SCREEN (PRELOADER) */}
+      <div
+        className={`fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
+          isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <div className="relative">
+          {/* Logo Animation */}
+          <div className="w-24 h-24 bg-[#ED1C24] rounded-3xl flex items-center justify-center text-white shadow-xl shadow-red-200 animate-bounce">
+            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
+            </svg>
+          </div>
+          <div className="absolute -bottom-4 left-0 right-0 h-4 bg-black/10 rounded-full blur-md animate-pulse"></div>
+        </div>
+
+        <h2 className="mt-8 text-2xl font-black text-gray-900 tracking-tight">
+          กำลังเข้าสู่ระบบ...
+        </h2>
+        <p className="text-gray-400 text-sm mt-1 font-medium tracking-widest uppercase">
+          Thailand Post Sector 6
+        </p>
+
+        {/* Loading Bar */}
+        <div className="w-64 h-1.5 bg-gray-100 rounded-full mt-6 overflow-hidden relative">
+          <div className="absolute top-0 left-0 h-full w-full bg-[#ED1C24] origin-left animate-[shimmer_2s_infinite]"></div>
+          <div className="absolute top-0 left-0 h-full w-1/3 bg-white/30 blur-sm animate-[dash-flow_1.5s_infinite]"></div>
+        </div>
+
+        <p className="mt-4 text-xs text-gray-400">
+          {iframeLoaded ? "ข้อมูลพร้อมใช้งาน" : "กำลังโหลด Dashboard..."}
+        </p>
+      </div>
+
       {/* GLOBAL STYLES & ANIMATIONS */}
       <style jsx global>{`
         .bg-grid-slate {
@@ -483,8 +541,11 @@ export default function Home() {
             linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
         }
         @keyframes dash-flow {
-          to {
-            stroke-dashoffset: -100;
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(300%);
           }
         }
         .animate-dash-flow {
@@ -762,7 +823,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD */}
+      {/* ✅ SECTION: DASHBOARD (UPDATED: Added onLoad) */}
       <section
         id="dashboard"
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
@@ -809,14 +870,27 @@ export default function Home() {
           </div>
 
           {/* Iframe Container */}
-          <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-200 overflow-hidden relative w-full h-screen transition-all duration-300">
+          <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-200 overflow-hidden relative w-full h-screen transition-all duration-300 group">
+            {/* Loading Indicator inside Card (Optional fallback) */}
+            <div
+              className={`absolute inset-0 bg-gray-50 flex items-center justify-center z-10 transition-opacity duration-500 ${
+                iframeLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+            </div>
+
             <iframe
               key={activeDashboard}
               src={dashboardLinks[activeDashboard]}
+              onLoad={() => {
+                console.log("Iframe Loaded");
+                setIframeLoaded(true);
+              }}
               frameBorder="0"
               style={{ border: 0 }}
               allowFullScreen
-              className="absolute top-0 left-0 w-full h-full"
+              className="absolute top-0 left-0 w-full h-full relative z-0"
             ></iframe>
           </div>
         </div>
