@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Swal from "sweetalert2";
+import imageCompression from "browser-image-compression";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function DashboardPage() {
   // --- Auth & UI States ---
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [userEmail, setUserEmail] = useState("");
-  const [activeTab, setActiveTab] = useState("circular");
+  const [activeTab, setActiveTab] = useState("circular"); // circular, news, overview
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // --- Filter States ---
@@ -22,25 +23,40 @@ export default function DashboardPage() {
 
   // --- Data & Selection States ---
   const [docList, setDocList] = useState<any[]>([]);
+  const [newsList, setNewsList] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // --- Modal States ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
+  const [isViewNewsModalOpen, setIsViewNewsModalOpen] = useState(false);
+
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [selectedNews, setSelectedNews] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Edit States ---
   const [isEditing, setIsEditing] = useState(false);
   const [editDocId, setEditDocId] = useState<number | null>(null);
+  const [editNewsId, setEditNewsId] = useState<number | null>(null);
 
-  // --- Helper: Get Today Date (YYYY-MM-DD) ---
-  const getTodayDate = () => {
-    return new Date().toISOString().split("T")[0];
-  };
+  // --- Toast ---
+  const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.onmouseenter = Swal.stopTimer;
+      toast.onmouseleave = Swal.resumeTimer;
+    },
+  });
 
-  // --- Helper: Format Thai Date ---
+  // --- Helpers ---
+  const getTodayDate = () => new Date().toISOString().split("T")[0];
   const formatThaiDate = (dateString: string) => {
     if (!dateString) return "-";
     const [y, m, d] = dateString.split("-").map(Number);
@@ -60,8 +76,6 @@ export default function DashboardPage() {
     ];
     return `${d} ${months[m - 1]} ${y + 543}`;
   };
-
-  // --- Helper: Get Color based on Type ---
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
       case "คำสั่ง":
@@ -70,15 +84,18 @@ export default function DashboardPage() {
         return "bg-rose-50 text-rose-700 border-rose-200";
       case "ขอความร่วมมือ":
         return "bg-amber-50 text-amber-700 border-amber-200";
-      default: // บันทึกข้อความ
+      case "ข่าวประชาสัมพันธ์":
+        return "bg-purple-50 text-purple-700 border-purple-200";
+      case "ข่าวสารทั่วไป":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      default:
         return "bg-teal-50 text-teal-700 border-teal-200";
     }
   };
 
-  // --- Departments List ---
   const departments = ["รป.", "ทข.", "ตล.", "บค.", "อบ.", "กง.", "ทพ."];
 
-  // Form Data
+  // --- Form Data ---
   const [formData, setFormData] = useState({
     title: "",
     book_no: "",
@@ -89,10 +106,21 @@ export default function DashboardPage() {
     phone: "",
     status: "published",
   });
-
   const [linkList, setLinkList] = useState<{ name: string; url: string }[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
+
+  const [newsFormData, setNewsFormData] = useState({
+    type: "ข่าวประชาสัมพันธ์",
+    date: getTodayDate(),
+    title: "",
+    details: "",
+    status: "published",
+  });
+  const [newsCoverImage, setNewsCoverImage] = useState<File | null>(null);
+  const [existingCoverImage, setExistingCoverImage] = useState<any>(null);
+  const [newsGalleryImages, setNewsGalleryImages] = useState<File[]>([]);
+  const [existingGalleryImages, setExistingGalleryImages] = useState<any[]>([]);
 
   // --- Init ---
   useEffect(() => {
@@ -106,164 +134,365 @@ export default function DashboardPage() {
       }
       setUserEmail(user.email || "Admin");
       setIsAuthChecking(false);
-      fetchDocuments();
+      if (activeTab === "circular") fetchDocuments();
+      else if (activeTab === "news") fetchNews();
     };
     init();
-  }, [router]);
+  }, [router, activeTab]);
 
-  // --- Database Functions ---
+  useEffect(() => {
+    resetFilter();
+    setSelectedIds([]);
+  }, [activeTab]);
+
+  // --- DB Functions ---
   const fetchDocuments = async () => {
     setIsLoadingData(true);
     const { data, error } = await supabase
       .from("documents")
       .select("*")
       .order("id", { ascending: false });
-
-    if (error) console.error("Error fetching docs:", error);
+    if (error) console.error(error);
     else setDocList(data || []);
     setIsLoadingData(false);
-    setSelectedIds([]);
+  };
+  const fetchNews = async () => {
+    setIsLoadingData(true);
+    const { data, error } = await supabase
+      .from("news")
+      .select("*")
+      .order("id", { ascending: false });
+    if (error) console.error(error);
+    else setNewsList(data || []);
+    setIsLoadingData(false);
+  };
+
+  const uploadFileSingle = async (file: File, bucket: string = "documents") => {
+    let fileToUpload = file;
+    if (file.type.startsWith("image/")) {
+      try {
+        const options = {
+          maxSizeMB: 0.8,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        };
+        const compressedFile = await imageCompression(file, options);
+        fileToUpload = new File([compressedFile], file.name, {
+          type: file.type,
+        });
+      } catch (error) {
+        console.warn("Image compression failed, uploading original.", error);
+      }
+    }
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 10)}.${fileExt}`;
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, fileToUpload);
+    if (error) throw error;
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    return {
+      name: file.name,
+      url: data.publicUrl,
+      size: (fileToUpload.size / 1024 / 1024).toFixed(2) + " MB",
+    };
   };
 
   const uploadFilesToStorage = async () => {
     const uploadedFiles = [];
     for (const file of selectedFiles) {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 10)}.${fileExt}`;
-
-      const { error } = await supabase.storage
-        .from("documents")
-        .upload(fileName, file);
-
-      if (error) {
+      try {
+        const result = await uploadFileSingle(file, "documents");
+        uploadedFiles.push(result);
+      } catch (error: any) {
         Swal.fire({
           icon: "error",
           title: "อัปโหลดล้มเหลว",
           text: `ไฟล์ ${file.name}: ${error.message}`,
           confirmButtonColor: "#ED1C24",
         });
-        continue;
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("documents")
-        .getPublicUrl(fileName);
-
-      uploadedFiles.push({
-        name: file.name,
-        url: publicUrlData.publicUrl,
-        size: (file.size / 1024 / 1024).toFixed(2) + " MB",
-      });
     }
     return uploadedFiles;
   };
 
-  const handleToggleStatus = async (doc: any) => {
-    const newStatus = doc.status === "published" ? "draft" : "published";
-    setDocList((prev) =>
-      prev.map((d) => (d.id === doc.id ? { ...d, status: newStatus } : d))
-    );
+  // --- Handlers ---
+  const handleNewsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const { error } = await supabase
-      .from("documents")
-      .update({ status: newStatus })
-      .eq("id", doc.id);
+    // ✅ Logic การตั้งชื่อหัวข้ออัตโนมัติ
+    let finalTitle = newsFormData.title;
 
-    if (error) {
+    if (newsFormData.type === "ข่าวสารทั่วไป") {
+      // ถ้าเป็นข่าวทั่วไป ต้องกรอกหัวข้อ
+      if (!finalTitle.trim()) {
+        Swal.fire({
+          icon: "warning",
+          title: "ข้อมูลไม่ครบถ้วน",
+          text: "กรุณากรอกหัวข้อข่าว",
+          confirmButtonText: "ตกลง",
+          confirmButtonColor: "#f59e0b",
+        });
+        return;
+      }
+    } else {
+      // ถ้าเป็นข่าวประชาสัมพันธ์ ให้ตั้งชื่ออัตโนมัติ
+      finalTitle = `ประชาสัมพันธ์วันที่ ${formatThaiDate(newsFormData.date)}`;
+    }
+
+    if (!newsFormData.details.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณากรอกรายละเอียด",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let coverData = existingCoverImage;
+      if (newsCoverImage)
+        coverData = await uploadFileSingle(newsCoverImage, "documents");
+
+      const newGalleryData = [];
+      // ✅ อัปโหลด Gallery เฉพาะ "ข่าวสารทั่วไป"
+      if (newsFormData.type === "ข่าวสารทั่วไป") {
+        for (const file of newsGalleryImages) {
+          const res = await uploadFileSingle(file, "documents");
+          newGalleryData.push(res);
+        }
+      }
+      const finalGalleryData = [...existingGalleryImages, ...newGalleryData];
+
+      const payload = {
+        ...newsFormData,
+        title: finalTitle, // ใช้ Title ที่ผ่าน Logic
+        cover_image: coverData,
+        gallery_images:
+          newsFormData.type === "ข่าวสารทั่วไป" ? finalGalleryData : [],
+        status_color:
+          newsFormData.status === "published" ? "bg-green-500" : "bg-gray-400",
+      };
+
+      if (isEditing && editNewsId) {
+        const { error } = await supabase
+          .from("news")
+          .update(payload)
+          .eq("id", editNewsId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("news")
+          .insert([{ ...payload, created_at: new Date() }]);
+        if (error) throw error;
+      }
+      await Swal.fire({
+        icon: "success",
+        title: "สำเร็จ",
+        text: "บันทึกข้อมูลข่าวสารเรียบร้อยแล้ว",
+        confirmButtonColor: "#ED1C24",
+      });
+      setIsNewsModalOpen(false);
+      resetNewsForm();
+      fetchNews();
+    } catch (error: any) {
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
-        text: "เปลี่ยนสถานะไม่สำเร็จ: " + error.message,
+        text: error.message,
         confirmButtonColor: "#ED1C24",
       });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !formData.book_no.trim() ||
+      !formData.title.trim() ||
+      !formData.date ||
+      !formData.dept ||
+      !formData.details.trim()
+    ) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const newUploadedFiles = await uploadFilesToStorage();
+      const finalFiles = isEditing
+        ? [...existingFiles, ...newUploadedFiles]
+        : newUploadedFiles;
+      const payload = {
+        ...formData,
+        links: linkList,
+        files: finalFiles,
+        status_color:
+          formData.status === "published" ? "bg-green-500" : "bg-gray-400",
+      };
+      if (isEditing && editDocId) {
+        const { error } = await supabase
+          .from("documents")
+          .update(payload)
+          .eq("id", editDocId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("documents").insert([payload]);
+        if (error) throw error;
+      }
+      await Swal.fire({
+        icon: "success",
+        title: "สำเร็จ!",
+        text: "บันทึกข้อมูลเรียบร้อยแล้ว",
+        confirmButtonColor: "#ED1C24",
+        confirmButtonText: "ตกลง",
+      });
+      setIsAddModalOpen(false);
+      resetForm();
       fetchDocuments();
+    } catch (error: any) {
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: error.message,
+        confirmButtonColor: "#ED1C24",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // --- Bulk Actions Functions ---
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      const allIds = filteredDocs.map((doc) => doc.id);
-      setSelectedIds(allIds);
-    } else {
-      setSelectedIds([]);
-    }
+  // --- Actions ---
+  const handleToggleStatus = async (table: "documents" | "news", item: any) => {
+    const newStatus = item.status === "published" ? "draft" : "published";
+    if (table === "documents")
+      setDocList((prev) =>
+        prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d))
+      );
+    else
+      setNewsList((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, status: newStatus } : n))
+      );
+    const { error } = await supabase
+      .from(table)
+      .update({
+        status: newStatus,
+        status_color:
+          newStatus === "published" ? "bg-green-500" : "bg-gray-400",
+      })
+      .eq("id", item.id);
+    if (error) {
+      Swal.fire("Error", "เปลี่ยนสถานะไม่สำเร็จ", "error");
+      if (table === "documents") fetchDocuments();
+      else fetchNews();
+    } else
+      Toast.fire({
+        icon: "success",
+        title: `สถานะ: ${newStatus === "published" ? "เผยแพร่" : "แบบร่าง"}`,
+      });
   };
 
-  const handleSelectOne = (id: number) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter((sid) => sid !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-
+  const handleDeleteItem = async (table: "documents" | "news", id: number) => {
     const result = await Swal.fire({
-      title: `ลบ ${selectedIds.length} รายการ?`,
-      text: "คุณแน่ใจหรือไม่ที่จะลบเอกสารที่เลือกทั้งหมด การกระทำนี้ไม่สามารถย้อนกลับได้",
+      title: "ยืนยันการลบ?",
+      text: "การกระทำนี้ไม่สามารถย้อนกลับได้",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
+      confirmButtonText: "ลบข้อมูล",
+      cancelButtonText: "ยกเลิก",
+    });
+    if (result.isConfirmed) {
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) Swal.fire("Error", error.message, "error");
+      else {
+        await Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
+        if (table === "documents") fetchDocuments();
+        else fetchNews();
+      }
+    }
+  };
+
+  const handleBulkDelete = async (table: "documents" | "news") => {
+    if (selectedIds.length === 0) return;
+    const result = await Swal.fire({
+      title: `ลบ ${selectedIds.length} รายการ?`,
+      text: "ยืนยันการลบรายการที่เลือกทั้งหมด",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
       confirmButtonText: "ยืนยันการลบ",
       cancelButtonText: "ยกเลิก",
     });
-
     if (result.isConfirmed) {
       const { error } = await supabase
-        .from("documents")
+        .from(table)
         .delete()
         .in("id", selectedIds);
-
-      if (error) {
-        Swal.fire("Error", error.message, "error");
-      } else {
-        Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
-        fetchDocuments();
+      if (error) Swal.fire("Error", error.message, "error");
+      else {
+        await Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
+        if (table === "documents") fetchDocuments();
+        else fetchNews();
         setSelectedIds([]);
       }
     }
   };
 
-  const handleBulkStatusChange = async (newStatus: "published" | "draft") => {
+  const handleBulkStatusChange = async (
+    table: "documents" | "news",
+    newStatus: "published" | "draft"
+  ) => {
     if (selectedIds.length === 0) return;
-
-    const statusText = newStatus === "published" ? "เผยแพร่" : "ซ่อน (Draft)";
-
     const { error } = await supabase
-      .from("documents")
+      .from(table)
       .update({
         status: newStatus,
         status_color:
           newStatus === "published" ? "bg-green-500" : "bg-gray-400",
       })
       .in("id", selectedIds);
-
-    if (error) {
-      Swal.fire("Error", error.message, "error");
-    } else {
-      const Toast = Swal.mixin({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true,
-      });
+    if (error) Swal.fire("Error", error.message, "error");
+    else {
       Toast.fire({
         icon: "success",
-        title: `เปลี่ยนสถานะเป็น "${statusText}" เรียบร้อยแล้ว`,
+        title: `เปลี่ยนสถานะเป็น ${newStatus} เรียบร้อยแล้ว`,
       });
-      fetchDocuments();
+      if (table === "documents") fetchDocuments();
+      else fetchNews();
       setSelectedIds([]);
     }
   };
 
-  const handleEditClick = (doc: any) => {
+  // --- Utils ---
+  const handleSelectAll = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    list: any[]
+  ) => {
+    e.target.checked
+      ? setSelectedIds(list.map((i) => i.id))
+      : setSelectedIds([]);
+  };
+  const handleSelectOne = (id: number) => {
+    selectedIds.includes(id)
+      ? setSelectedIds(selectedIds.filter((sid) => sid !== id))
+      : setSelectedIds([...selectedIds, id]);
+  };
+
+  const handleEditDoc = (doc: any) => {
     setIsEditing(true);
     setEditDocId(doc.id);
     setFormData({
@@ -281,120 +510,30 @@ export default function DashboardPage() {
     setSelectedFiles([]);
     setIsAddModalOpen(true);
   };
-
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-      !formData.book_no.trim() ||
-      !formData.title.trim() ||
-      !formData.date ||
-      !formData.dept ||
-      !formData.details.trim()
-    ) {
-      Swal.fire({
-        icon: "warning",
-        title: "ข้อมูลไม่ครบถ้วน",
-        text: "กรุณากรอกข้อมูลให้ครบทุกช่อง (ยกเว้นไฟล์และลิงก์)",
-        confirmButtonText: "ตกลง",
-        confirmButtonColor: "#f59e0b",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const newUploadedFiles = await uploadFilesToStorage();
-      const finalFiles = isEditing
-        ? [...existingFiles, ...newUploadedFiles]
-        : newUploadedFiles;
-
-      const payload = {
-        ...formData,
-        links: linkList,
-        files: finalFiles,
-        status_color:
-          formData.status === "published" ? "bg-green-500" : "bg-gray-400",
-      };
-
-      let error;
-      if (isEditing && editDocId) {
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update(payload)
-          .eq("id", editDocId);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from("documents")
-          .insert([payload]);
-        error = insertError;
-      }
-
-      if (error) throw error;
-
-      await Swal.fire({
-        icon: "success",
-        title: "สำเร็จ!",
-        text: isEditing
-          ? "แก้ไขข้อมูลเรียบร้อยแล้ว"
-          : "เพิ่มเอกสารใหม่เรียบร้อยแล้ว",
-        confirmButtonColor: "#ED1C24",
-        confirmButtonText: "ตกลง",
-      });
-
-      setIsAddModalOpen(false);
-      resetForm();
-      fetchDocuments();
-    } catch (error: any) {
-      Swal.fire({
-        icon: "error",
-        title: "เกิดข้อผิดพลาด",
-        text: error.message,
-        confirmButtonColor: "#ED1C24",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteDoc = async (id: number) => {
-    const result = await Swal.fire({
-      title: "ยืนยันการลบ?",
-      text: "คุณต้องการลบเอกสารนี้ใช่ไหม การกระทำนี้ไม่สามารถย้อนกลับได้",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "ลบเอกสาร",
-      cancelButtonText: "ยกเลิก",
+  const handleEditNews = (item: any) => {
+    setIsEditing(true);
+    setEditNewsId(item.id);
+    setNewsFormData({
+      type: item.type,
+      date: item.date,
+      title: item.title,
+      details: item.details || "",
+      status: item.status,
     });
-
-    if (result.isConfirmed) {
-      const { error } = await supabase.from("documents").delete().eq("id", id);
-      if (error) {
-        Swal.fire({
-          icon: "error",
-          title: "ลบไม่สำเร็จ",
-          text: error.message,
-          confirmButtonColor: "#ED1C24",
-        });
-      } else {
-        Swal.fire({
-          icon: "success",
-          title: "ลบเรียบร้อย",
-          showConfirmButton: false,
-          timer: 1500,
-        });
-        fetchDocuments();
-      }
-    }
+    setExistingCoverImage(item.cover_image);
+    setExistingGalleryImages(item.gallery_images || []);
+    setNewsCoverImage(null);
+    setNewsGalleryImages([]);
+    setIsNewsModalOpen(true);
   };
 
-  // --- Helpers & Reset ---
   const handleViewDoc = (doc: any) => {
     setSelectedDoc(doc);
     setIsViewModalOpen(true);
+  };
+  const handleViewNews = (news: any) => {
+    setSelectedNews(news);
+    setIsViewNewsModalOpen(true);
   };
 
   const resetForm = () => {
@@ -414,14 +553,27 @@ export default function DashboardPage() {
     setIsEditing(false);
     setEditDocId(null);
   };
-
+  const resetNewsForm = () => {
+    setNewsFormData({
+      type: "ข่าวประชาสัมพันธ์",
+      date: getTodayDate(),
+      title: "",
+      details: "",
+      status: "published",
+    });
+    setNewsCoverImage(null);
+    setExistingCoverImage(null);
+    setNewsGalleryImages([]);
+    setExistingGalleryImages([]);
+    setIsEditing(false);
+    setEditNewsId(null);
+  };
   const resetFilter = () => {
     setSearchTerm("");
     setFilterDept("");
     setFilterStartDate("");
     setFilterEndDate("");
   };
-
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -429,154 +581,178 @@ export default function DashboardPage() {
   ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: "ออกจากระบบ?",
-      text: "คุณต้องการออกจากระบบใช่หรือไม่",
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#ED1C24",
-      cancelButtonColor: "#9ca3af",
       confirmButtonText: "ใช่, ออกจากระบบ",
       cancelButtonText: "ยกเลิก",
     });
-
     if (result.isConfirmed) {
       await supabase.auth.signOut();
       router.replace("/");
     }
   };
 
+  // --- Filter Logic ---
   const filteredDocs = docList.filter((doc) => {
-    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      doc.title.toLowerCase().includes(term) ||
-      doc.book_no.toLowerCase().includes(term) ||
-      (doc.details && doc.details.toLowerCase().includes(term));
-
+      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.book_no.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept = filterDept ? doc.dept === filterDept : true;
     const matchesStartDate = filterStartDate
       ? doc.date >= filterStartDate
       : true;
     const matchesEndDate = filterEndDate ? doc.date <= filterEndDate : true;
-
     return matchesSearch && matchesDept && matchesStartDate && matchesEndDate;
   });
+  const filteredNews = newsList.filter((news) => {
+    const matchesSearch = news.title
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesType = filterDept ? news.type === filterDept : true;
+    const matchesStartDate = filterStartDate
+      ? news.date >= filterStartDate
+      : true;
+    const matchesEndDate = filterEndDate ? news.date <= filterEndDate : true;
+    return matchesSearch && matchesType && matchesStartDate && matchesEndDate;
+  });
 
-  if (isAuthChecking) {
+  if (isAuthChecking)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <div className="w-12 h-12 border-4 border-red-200 border-t-[#ED1C24] rounded-full animate-spin"></div>
       </div>
     );
-  }
-
-  // --- Components (Sidebar) ---
-  const Sidebar = () => (
-    <aside
-      className={`fixed left-0 top-0 h-full bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ${
-        isSidebarOpen ? "w-72" : "w-20"
-      } hidden md:flex flex-col`}
-    >
-      <div className="h-20 flex items-center justify-center border-b border-gray-100">
-        <div className="flex items-center gap-3 font-black text-xl text-gray-800 tracking-tight">
-          <div className="w-10 h-10 bg-gradient-to-br from-[#ED1C24] to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-200">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16m-7 6h7"
-              />
-            </svg>
-          </div>
-          {isSidebarOpen && (
-            <span>
-              Admin<span className="text-[#ED1C24]">Hub</span>
-            </span>
-          )}
-        </div>
-      </div>
-      <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
-        <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-4 tracking-wider">
-          {isSidebarOpen ? "Menu" : "..."}
-        </div>
-        <MenuItem
-          icon={<HomeIcon />}
-          label="ภาพรวม (Overview)"
-          active={activeTab === "overview"}
-          onClick={() => setActiveTab("overview")}
-        />
-        <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-6 tracking-wider">
-          {isSidebarOpen ? "Management" : "..."}
-        </div>
-        <MenuItem
-          icon={<DocIcon />}
-          label="จัดการบันทึกข้อความ"
-          active={activeTab === "circular"}
-          onClick={() => setActiveTab("circular")}
-        />
-        <MenuItem
-          icon={<NewsIcon />}
-          label="จัดการข่าวสาร"
-          active={activeTab === "news"}
-          onClick={() => setActiveTab("news")}
-        />
-      </nav>
-      <div className="p-4 border-t border-gray-100">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-4 py-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group"
-        >
-          <LogoutIcon />
-          {isSidebarOpen && (
-            <span className="font-bold text-sm">ออกจากระบบ</span>
-          )}
-        </button>
-      </div>
-    </aside>
-  );
-
-  const MenuItem = ({ icon, label, active, onClick }: any) => (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-        active
-          ? "bg-red-50 text-[#ED1C24]"
-          : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-      }`}
-    >
-      <div
-        className={`transition-colors ${
-          active ? "text-[#ED1C24]" : "text-gray-400 group-hover:text-gray-600"
-        }`}
-      >
-        {icon}
-      </div>
-      {isSidebarOpen && (
-        <span className="font-bold text-sm whitespace-nowrap">{label}</span>
-      )}
-      {active && isSidebarOpen && (
-        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></div>
-      )}
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-gray-800 font-sans selection:bg-red-100 selection:text-red-600">
-      <Sidebar />
+      <aside
+        className={`fixed left-0 top-0 h-full bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ${
+          isSidebarOpen ? "w-72" : "w-20"
+        } hidden md:flex flex-col`}
+      >
+        <div className="h-20 flex items-center justify-center border-b border-gray-100">
+          <div className="flex items-center gap-3 font-black text-xl text-gray-800 tracking-tight">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#ED1C24] to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-200">
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16m-7 6h7"
+                />
+              </svg>
+            </div>
+            {isSidebarOpen && (
+              <span>
+                Admin<span className="text-[#ED1C24]">Hub</span>
+              </span>
+            )}
+          </div>
+        </div>
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
+          <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-4 tracking-wider">
+            {isSidebarOpen ? "Menu" : "..."}
+          </div>
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+              activeTab === "overview"
+                ? "bg-red-50 text-[#ED1C24]"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            <div
+              className={`transition-colors ${
+                activeTab === "overview"
+                  ? "text-[#ED1C24]"
+                  : "text-gray-400 group-hover:text-gray-600"
+              }`}
+            >
+              <HomeIcon />
+            </div>
+            {isSidebarOpen && (
+              <span className="font-bold text-sm whitespace-nowrap">
+                ภาพรวม (Overview)
+              </span>
+            )}
+          </button>
+          <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-6 tracking-wider">
+            {isSidebarOpen ? "Management" : "..."}
+          </div>
+          <button
+            onClick={() => setActiveTab("circular")}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+              activeTab === "circular"
+                ? "bg-red-50 text-[#ED1C24]"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            <div
+              className={`transition-colors ${
+                activeTab === "circular"
+                  ? "text-[#ED1C24]"
+                  : "text-gray-400 group-hover:text-gray-600"
+              }`}
+            >
+              <DocIcon />
+            </div>
+            {isSidebarOpen && (
+              <span className="font-bold text-sm whitespace-nowrap">
+                จัดการบันทึกข้อความ
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("news")}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+              activeTab === "news"
+                ? "bg-red-50 text-[#ED1C24]"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            <div
+              className={`transition-colors ${
+                activeTab === "news"
+                  ? "text-[#ED1C24]"
+                  : "text-gray-400 group-hover:text-gray-600"
+              }`}
+            >
+              <NewsIcon />
+            </div>
+            {isSidebarOpen && (
+              <span className="font-bold text-sm whitespace-nowrap">
+                จัดการข่าวสาร
+              </span>
+            )}
+          </button>
+        </nav>
+        <div className="p-4 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 group"
+          >
+            <LogoutIcon />
+            {isSidebarOpen && (
+              <span className="font-bold text-sm">ออกจากระบบ</span>
+            )}
+          </button>
+        </div>
+      </aside>
+
       <main
         className={`transition-all duration-300 ${
           isSidebarOpen ? "md:ml-72" : "md:ml-20"
         } min-h-screen flex flex-col`}
       >
-        {/* Top Navbar */}
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30 px-8 flex items-center justify-between shadow-sm shadow-gray-100/50">
           <div className="flex items-center gap-4">
             <button
@@ -586,7 +762,11 @@ export default function DashboardPage() {
               <MenuIcon />
             </button>
             <h1 className="text-xl font-black text-gray-800 capitalize tracking-tight">
-              {activeTab === "circular" ? "จัดการบันทึกข้อความ" : activeTab}
+              {activeTab === "circular"
+                ? "จัดการบันทึกข้อความ"
+                : activeTab === "news"
+                ? "จัดการข่าวสาร"
+                : "ภาพรวม (Overview)"}
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -600,11 +780,21 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Content Area */}
         <div className="p-8 flex-1">
-          {activeTab === "circular" ? (
+          {activeTab === "overview" && (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-300 animate-fade-in-up">
+              <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mb-4">
+                <SettingIcon size={48} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-400">
+                อยู่ระหว่างการพัฒนา
+              </h3>
+              <p className="text-sm">ฟีเจอร์นี้จะเปิดให้ใช้งานเร็วๆ นี้</p>
+            </div>
+          )}
+
+          {activeTab === "circular" && (
             <div className="space-y-6 animate-fade-in-up">
-              {/* Toolbar & Filters */}
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                   <h2 className="text-lg font-bold text-gray-700 hidden md:block">
@@ -620,7 +810,6 @@ export default function DashboardPage() {
                     <PlusIcon /> เพิ่มเอกสารใหม่
                   </button>
                 </div>
-
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                   <div className="relative group w-full md:w-1/3">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#ED1C24] transition-colors">
@@ -628,13 +817,12 @@ export default function DashboardPage() {
                     </div>
                     <input
                       type="text"
-                      placeholder="ค้นหาเลขที่, หัวข้อ, รายละเอียด..."
+                      placeholder="ค้นหาเลขที่, หัวข้อ..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                     />
                   </div>
-
                   <div className="w-full md:w-1/4">
                     <select
                       value={filterDept}
@@ -649,7 +837,6 @@ export default function DashboardPage() {
                       ))}
                     </select>
                   </div>
-
                   <div className="flex items-center gap-2 w-full md:w-auto">
                     <input
                       type="date"
@@ -665,7 +852,6 @@ export default function DashboardPage() {
                       className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none"
                     />
                   </div>
-
                   <button
                     onClick={resetFilter}
                     className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 hover:text-gray-700 transition-colors text-sm font-bold whitespace-nowrap"
@@ -673,8 +859,6 @@ export default function DashboardPage() {
                     ล้างตัวกรอง
                   </button>
                 </div>
-
-                {/* ✅ ส่วน Bulk Actions Bar */}
                 {selectedIds.length > 0 && (
                   <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
                     <div className="flex items-center gap-2">
@@ -687,20 +871,24 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleBulkStatusChange("published")}
+                        onClick={() =>
+                          handleBulkStatusChange("documents", "published")
+                        }
                         className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
                       >
-                        เผยแพร่ (Publish)
+                        เผยแพร่
                       </button>
                       <button
-                        onClick={() => handleBulkStatusChange("draft")}
+                        onClick={() =>
+                          handleBulkStatusChange("documents", "draft")
+                        }
                         className="px-4 py-2 bg-gray-400 text-white rounded-lg text-xs font-bold hover:bg-gray-500 transition-colors"
                       >
-                        ซ่อน (Draft)
+                        ซ่อน
                       </button>
                       <div className="w-px h-6 bg-gray-300 mx-1"></div>
                       <button
-                        onClick={handleBulkDelete}
+                        onClick={() => handleBulkDelete("documents")}
                         className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors flex items-center gap-1"
                       >
                         <TrashIcon /> ลบที่เลือก
@@ -709,8 +897,6 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-
-              {/* Table Card */}
               <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
                 {isLoadingData ? (
                   <div className="p-20 text-center flex flex-col items-center gap-4">
@@ -724,19 +910,18 @@ export default function DashboardPage() {
                     <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                       <DocIcon size={40} />
                     </div>
-                    <p>ไม่พบข้อมูลเอกสารตามเงื่อนไขที่กำหนด</p>
+                    <p>ไม่พบข้อมูลเอกสาร</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
                         <tr>
-                          {/* ✅ Checkbox Select All */}
                           <th className="p-5 w-10 text-center">
                             <input
                               type="checkbox"
                               className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
-                              onChange={handleSelectAll}
+                              onChange={(e) => handleSelectAll(e, filteredDocs)}
                               checked={
                                 filteredDocs.length > 0 &&
                                 selectedIds.length === filteredDocs.length
@@ -776,7 +961,6 @@ export default function DashboardPage() {
                                 : "hover:bg-red-50/30"
                             }`}
                           >
-                            {/* ✅ Checkbox รายแถว */}
                             <td className="p-5 text-center">
                               <input
                                 type="checkbox"
@@ -825,7 +1009,6 @@ export default function DashboardPage() {
                                 )}
                               </div>
                             </td>
-
                             <td className="p-5">
                               <span
                                 className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
@@ -835,7 +1018,6 @@ export default function DashboardPage() {
                                 {doc.type}
                               </span>
                             </td>
-
                             <td className="p-5 text-sm font-medium text-gray-500">
                               {doc.dept}
                             </td>
@@ -844,17 +1026,14 @@ export default function DashboardPage() {
                             </td>
                             <td className="p-5 pr-8 text-right flex justify-end gap-2 items-center">
                               <button
-                                onClick={() => handleToggleStatus(doc)}
+                                onClick={() =>
+                                  handleToggleStatus("documents", doc)
+                                }
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                                   doc.status === "published"
                                     ? "text-green-500 hover:bg-green-50"
                                     : "text-gray-400 hover:bg-gray-100"
                                 }`}
-                                title={
-                                  doc.status === "published"
-                                    ? "ซ่อน (Draft)"
-                                    : "เผยแพร่ (Publish)"
-                                }
                               >
                                 {doc.status === "published" ? (
                                   <ToggleOnIcon />
@@ -862,27 +1041,23 @@ export default function DashboardPage() {
                                   <ToggleOffIcon />
                                 )}
                               </button>
-
                               <button
-                                onClick={() => handleEditClick(doc)}
+                                onClick={() => handleEditDoc(doc)}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all"
-                                title="แก้ไข"
                               >
                                 <PencilIcon />
                               </button>
-
                               <button
                                 onClick={() => handleViewDoc(doc)}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
-                                title="ดูรายละเอียด"
                               >
                                 <EyeIcon />
                               </button>
-
                               <button
-                                onClick={() => handleDeleteDoc(doc.id)}
+                                onClick={() =>
+                                  handleDeleteItem("documents", doc.id)
+                                }
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                                title="ลบ"
                               >
                                 <TrashIcon />
                               </button>
@@ -895,21 +1070,284 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-300">
-              <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mb-4">
-                <SettingIcon size={48} />
+          )}
+
+          {activeTab === "news" && (
+            <div className="space-y-6 animate-fade-in-up">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+                  <h2 className="text-lg font-bold text-gray-700 hidden md:block">
+                    รายการข่าวสารทั้งหมด
+                  </h2>
+                  <button
+                    onClick={() => {
+                      resetNewsForm();
+                      setIsNewsModalOpen(true);
+                    }}
+                    className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#ED1C24] to-red-600 text-white rounded-xl shadow-lg shadow-red-200 text-sm font-bold hover:shadow-red-300 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                  >
+                    <PlusIcon /> เพิ่มข่าวสาร
+                  </button>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                  <div className="relative group w-full md:w-1/3">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#ED1C24] transition-colors">
+                      <SearchIcon />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="ค้นหาหัวข้อข่าว..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="w-full md:w-1/4">
+                    <select
+                      value={filterDept}
+                      onChange={(e) => setFilterDept(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                    >
+                      <option value="">ทุกประเภท</option>
+                      <option value="ข่าวประชาสัมพันธ์">
+                        ข่าวประชาสัมพันธ์
+                      </option>
+                      <option value="ข่าวสารทั่วไป">ข่าวสารทั่วไป</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none"
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={resetFilter}
+                    className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 hover:text-gray-700 transition-colors text-sm font-bold whitespace-nowrap"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                </div>
+                {selectedIds.length > 0 && (
+                  <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#ED1C24] text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {selectedIds.length}
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">
+                        รายการที่เลือก
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          handleBulkStatusChange("news", "published")
+                        }
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
+                      >
+                        เผยแพร่
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusChange("news", "draft")}
+                        className="px-4 py-2 bg-gray-400 text-white rounded-lg text-xs font-bold hover:bg-gray-500 transition-colors"
+                      >
+                        ซ่อน
+                      </button>
+                      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                      <button
+                        onClick={() => handleBulkDelete("news")}
+                        className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <TrashIcon /> ลบที่เลือก
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <h3 className="text-xl font-bold text-gray-400">
-                อยู่ระหว่างการพัฒนา
-              </h3>
-              <p className="text-sm">ฟีเจอร์นี้จะเปิดให้ใช้งานเร็วๆ นี้</p>
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                {isLoadingData ? (
+                  <div className="p-20 text-center flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
+                    <span className="text-gray-400 font-medium">
+                      กำลังโหลดข้อมูล...
+                    </span>
+                  </div>
+                ) : filteredNews.length === 0 ? (
+                  <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                      <NewsIcon />
+                    </div>
+                    <p>ไม่พบรายการข่าวสาร</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
+                        <tr>
+                          <th className="p-5 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                              onChange={(e) => handleSelectAll(e, filteredNews)}
+                              checked={
+                                filteredNews.length > 0 &&
+                                selectedIds.length === filteredNews.length
+                              }
+                            />
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-24 pl-2">
+                            รูปปก
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32">
+                            สถานะ
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider">
+                            หัวข้อข่าว
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
+                            ประเภท
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
+                            วันที่
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider text-right w-36 pr-8">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {filteredNews.map((item) => (
+                          <tr
+                            key={item.id}
+                            className={`group transition-colors ${
+                              selectedIds.includes(item.id)
+                                ? "bg-red-50/40"
+                                : "hover:bg-red-50/30"
+                            }`}
+                          >
+                            <td className="p-5 text-center">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                                checked={selectedIds.includes(item.id)}
+                                onChange={() => handleSelectOne(item.id)}
+                              />
+                            </td>
+                            <td className="p-5 pl-2">
+                              <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-200">
+                                {item.cover_image?.url ? (
+                                  <img
+                                    src={item.cover_image.url}
+                                    alt="cover"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                    <FileIcon />
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-5">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                                  item.status === "published"
+                                    ? "bg-green-50 text-green-600 border-green-100"
+                                    : "bg-gray-50 text-gray-500 border-gray-200"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    item.status === "published"
+                                      ? "bg-green-500"
+                                      : "bg-gray-400"
+                                  }`}
+                                ></span>
+                                {item.status === "published"
+                                  ? "Published"
+                                  : "Draft"}
+                              </span>
+                            </td>
+                            <td className="p-5">
+                              <div className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
+                                {item.title}
+                              </div>
+                              <div className="text-xs text-gray-500 line-clamp-1">
+                                {item.details}
+                              </div>
+                            </td>
+                            <td className="p-5">
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
+                                  item.type
+                                )}`}
+                              >
+                                {item.type === "ข่าวสารทั่วไป"
+                                  ? "ข่าวทั่วไป"
+                                  : "ประชาสัมพันธ์"}
+                              </span>
+                            </td>
+                            <td className="p-5 text-sm text-gray-500 font-medium">
+                              {formatThaiDate(item.date)}
+                            </td>
+                            <td className="p-5 pr-8 text-right flex justify-end gap-2 items-center">
+                              <button
+                                onClick={() => handleToggleStatus("news", item)}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                                  item.status === "published"
+                                    ? "text-green-500 hover:bg-green-50"
+                                    : "text-gray-400 hover:bg-gray-100"
+                                }`}
+                              >
+                                {item.status === "published" ? (
+                                  <ToggleOnIcon />
+                                ) : (
+                                  <ToggleOffIcon />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleEditNews(item)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all"
+                              >
+                                <PencilIcon />
+                              </button>
+                              <button
+                                onClick={() => handleViewNews(item)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                              >
+                                <EyeIcon />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteItem("news", item.id)
+                                }
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                              >
+                                <TrashIcon />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
       </main>
 
-      {/* --- ADD/EDIT MODAL (✅ ปรับขนาดใหญ่ขึ้นตามที่ขอไว้) --- */}
+      {/* --- ADD/EDIT DOCUMENT MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
@@ -932,22 +1370,21 @@ export default function DashboardPage() {
                 onClick={() => setIsAddModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
               >
-                <span className="text-lg font-bold">×</span>
+                ×
               </button>
             </div>
-
             <form
               onSubmit={handleAddSubmit}
               className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8"
             >
               <section className="space-y-4">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-6 h-[1px] bg-gray-300"></span> ข้อมูลทั่วไป
+                  ข้อมูลทั่วไป
                 </h4>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      เลขที่หนังสือ <span className="text-red-500">*</span>
+                      เลขที่หนังสือ
                     </label>
                     <input
                       type="text"
@@ -956,12 +1393,11 @@ export default function DashboardPage() {
                       value={formData.book_no}
                       onChange={handleInputChange}
                       className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all"
-                      placeholder="เช่น ปข.6/ว.001"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      ลงวันที่ <span className="text-red-500">*</span>
+                      ลงวันที่
                     </label>
                     <input
                       type="date"
@@ -975,7 +1411,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    หัวข้อเรื่อง <span className="text-red-500">*</span>
+                    หัวข้อเรื่อง
                   </label>
                   <input
                     type="text"
@@ -983,215 +1419,158 @@ export default function DashboardPage() {
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all font-medium"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      ส่วนงานเจ้าของ <span className="text-red-500">*</span>
+                      ส่วนงาน
                     </label>
-                    <div className="relative">
-                      <select
-                        name="dept"
-                        required
-                        value={formData.dept}
-                        onChange={handleInputChange}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none appearance-none cursor-pointer"
-                      >
-                        <option value="">-- เลือกส่วนงาน --</option>
-                        {departments.map((deptName) => (
-                          <option key={deptName} value={deptName}>
-                            {deptName}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400">
-                        ▼
-                      </div>
-                    </div>
+                    <select
+                      name="dept"
+                      required
+                      value={formData.dept}
+                      onChange={handleInputChange}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                    >
+                      <option value="">-- เลือกส่วนงาน --</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
                       ประเภท
                     </label>
-                    <div className="relative">
-                      <select
-                        name="type"
-                        value={formData.type}
-                        onChange={handleInputChange}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none appearance-none transition-all cursor-pointer"
-                      >
-                        <option value="บันทึกข้อความ">บันทึกข้อความ</option>
-                        <option value="ประกาศ">ประกาศ</option>
-                        <option value="คำสั่ง">คำสั่ง</option>
-                        <option value="ขอความร่วมมือ">ขอความร่วมมือ</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400">
-                        ▼
-                      </div>
-                    </div>
+                    <select
+                      name="type"
+                      value={formData.type}
+                      onChange={handleInputChange}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                    >
+                      <option value="บันทึกข้อความ">บันทึกข้อความ</option>
+                      <option value="ประกาศ">ประกาศ</option>
+                      <option value="คำสั่ง">คำสั่ง</option>
+                      <option value="ขอความร่วมมือ">ขอความร่วมมือ</option>
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    รายละเอียดโดยย่อ <span className="text-red-500">*</span>
+                    รายละเอียด
                   </label>
                   <textarea
                     name="details"
                     rows={3}
                     value={formData.details}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all resize-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none resize-none"
                   ></textarea>
                 </div>
               </section>
-
               <section className="space-y-4">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-6 h-[1px] bg-gray-300"></span>{" "}
-                  ไฟล์แนบและลิงก์
+                  ไฟล์แนบ
                 </h4>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700">
-                    อัปโหลดไฟล์{" "}
-                    {isEditing && existingFiles.length > 0 && "(เพิ่มไฟล์ใหม่)"}
-                  </label>
-
-                  {/* แสดงไฟล์เดิมตอนแก้ไข */}
-                  {isEditing && existingFiles.length > 0 && (
-                    <div className="mb-3 space-y-2">
-                      <p className="text-xs text-gray-400 font-bold">
-                        ไฟล์เดิมที่มีอยู่:
-                      </p>
-                      {existingFiles.map((file: any, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 p-2 rounded-lg border border-gray-200"
-                        >
-                          <FileIcon />
-                          <span className="truncate flex-1">{file.name}</span>
-                          <span className="text-xs text-gray-400">
-                            ({file.size})
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              // ลบไฟล์จาก existingFiles
-                              const n = [...existingFiles];
-                              n.splice(idx, 1);
-                              setExistingFiles(n);
-                            }}
-                            className="text-red-400 hover:text-red-600 px-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 hover:border-red-200 transition-all relative group cursor-pointer">
-                    <input
-                      type="file"
-                      multiple
-                      onChange={(e) => {
-                        if (e.target.files)
-                          setSelectedFiles((prev) => [
-                            ...prev,
-                            ...Array.from(e.target.files!),
-                          ]);
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                    <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-red-400 transition-colors">
-                      <CloudUploadIcon />
-                      <span className="text-sm font-medium">
-                        คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
-                      </span>
-                    </div>
+                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 transition-all cursor-pointer relative group">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => {
+                      if (e.target.files)
+                        setSelectedFiles((prev) => [
+                          ...prev,
+                          ...Array.from(e.target.files!),
+                        ]);
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-red-400">
+                    <CloudUploadIcon />
+                    <span className="text-sm font-medium">คลิกอัปโหลด</span>
                   </div>
-                  {selectedFiles.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {selectedFiles.map((file, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between bg-gray-50 p-2 pl-3 rounded-lg border border-gray-100"
-                        >
-                          <span className="text-xs font-medium text-gray-600 truncate">
-                            {file.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const n = [...selectedFiles];
-                              n.splice(idx, 1);
-                              setSelectedFiles(n);
-                            }}
-                            className="p-1 text-gray-400 hover:text-red-500 rounded"
-                          >
-                            <span className="text-xs">✕</span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-sm font-bold text-gray-700">
-                      ลิงก์ภายนอก
-                    </label>
+                {selectedFiles.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedFiles.map((f, i) => (
+                      <div
+                        key={i}
+                        className="bg-gray-50 p-2 rounded-lg text-xs flex justify-between"
+                      >
+                        {f.name}{" "}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedFiles((prev) =>
+                              prev.filter((_, idx) => idx !== i)
+                            )
+                          }
+                          className="text-red-500"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-bold text-gray-700">
+                    ลิงก์ภายนอก
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLinkList([...linkList, { name: "", url: "" }])
+                    }
+                    className="text-xs font-bold text-[#ED1C24] hover:underline flex items-center gap-1"
+                  >
+                    + เพิ่มลิงก์
+                  </button>
+                </div>
+                {linkList.map((link, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="ชื่อลิงก์"
+                      value={link.name}
+                      onChange={(e) => {
+                        const n = [...linkList];
+                        n[idx].name = e.target.value;
+                        setLinkList(n);
+                      }}
+                      className="w-1/3 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="URL (https://...)"
+                      value={link.url}
+                      onChange={(e) => {
+                        const n = [...linkList];
+                        n[idx].url = e.target.value;
+                        setLinkList(n);
+                      }}
+                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
+                    />
                     <button
                       type="button"
-                      onClick={() =>
-                        setLinkList([...linkList, { name: "", url: "" }])
-                      }
-                      className="text-xs font-bold text-[#ED1C24] hover:underline flex items-center gap-1"
+                      onClick={() => {
+                        const n = [...linkList];
+                        n.splice(idx, 1);
+                        setLinkList(n);
+                      }}
+                      className="text-red-400 hover:text-red-600 p-2 bg-red-50 rounded-lg"
                     >
-                      + เพิ่มลิงก์
+                      ✕
                     </button>
                   </div>
-                  {linkList.map((link, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="ชื่อลิงก์"
-                        value={link.name}
-                        onChange={(e) => {
-                          const n = [...linkList];
-                          n[idx].name = e.target.value;
-                          setLinkList(n);
-                        }}
-                        className="w-1/3 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:border-red-500 outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="URL (https://...)"
-                        value={link.url}
-                        onChange={(e) => {
-                          const n = [...linkList];
-                          n[idx].url = e.target.value;
-                          setLinkList(n);
-                        }}
-                        className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:border-red-500 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const n = [...linkList];
-                          n.splice(idx, 1);
-                          setLinkList(n);
-                        }}
-                        className="text-red-400 hover:text-red-600 p-2"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
+                ))}
+              </div>
               <section className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div
@@ -1208,13 +1587,9 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">
-                      สถานะเอกสาร
-                    </p>
+                    <p className="text-sm font-bold text-gray-800">สถานะ</p>
                     <p className="text-xs text-gray-500">
-                      {formData.status === "published"
-                        ? "แสดงผลบนหน้าเว็บทันที"
-                        : "ซ่อนไว้ (แบบร่าง)"}
+                      {formData.status === "published" ? "แสดงผล" : "ซ่อน"}
                     </p>
                   </div>
                 </div>
@@ -1222,175 +1597,528 @@ export default function DashboardPage() {
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
-                  className="p-2 pr-8 bg-white border border-gray-200 rounded-lg text-sm font-bold focus:border-red-500 outline-none cursor-pointer"
+                  className="p-2 bg-white border border-gray-200 rounded-lg text-sm"
                 >
-                  <option value="published">เผยแพร่ (Public)</option>
-                  <option value="draft">ไม่เผยแพร่ (Draft)</option>
+                  <option value="published">เผยแพร่</option>
+                  <option value="draft">ไม่เผยแพร่</option>
                 </select>
               </section>
             </form>
-
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
               <button
-                type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-6 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all"
+                className="px-6 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-white transition-all"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleAddSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-3 bg-[#ED1C24] text-white rounded-xl text-sm font-bold hover:bg-red-600 hover:shadow-lg hover:shadow-red-200 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-8 py-3 bg-[#ED1C24] text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all"
               >
-                {isSubmitting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <SaveIcon />
-                )}
-                {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                {isSubmitting ? "..." : "บันทึก"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- VIEW DETAIL MODAL (✅ ปรับขนาดใหญ่ขึ้นตามที่ขอไว้) --- */}
-      {isViewModalOpen && selectedDoc && (
+      {/* --- ADD/EDIT NEWS MODAL --- */}
+      {isNewsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsNewsModalOpen(false)}
+          ></div>
+          <div className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
+              <div>
+                <h3 className="text-xl font-black text-gray-800">
+                  {isEditing ? "แก้ไขข่าวสาร" : "เพิ่มข่าวสาร"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsNewsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={handleNewsSubmit}
+              className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8"
+            >
+              <section className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  ข้อมูลทั่วไป
+                </h4>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">
+                      ประเภท
+                    </label>
+                    <select
+                      value={newsFormData.type}
+                      onChange={(e) =>
+                        setNewsFormData({
+                          ...newsFormData,
+                          type: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                    >
+                      <option value="ข่าวประชาสัมพันธ์">
+                        ข่าวประชาสัมพันธ์
+                      </option>
+                      <option value="ข่าวสารทั่วไป">ข่าวสารทั่วไป</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">
+                      วันที่
+                    </label>
+                    <input
+                      type="date"
+                      value={newsFormData.date}
+                      onChange={(e) =>
+                        setNewsFormData({
+                          ...newsFormData,
+                          date: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    หัวข้อข่าว
+                  </label>
+                  <input
+                    type="text"
+                    value={newsFormData.title}
+                    onChange={(e) =>
+                      setNewsFormData({
+                        ...newsFormData,
+                        title: e.target.value,
+                      })
+                    }
+                    disabled={newsFormData.type === "ข่าวประชาสัมพันธ์"}
+                    className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none ${
+                      newsFormData.type === "ข่าวประชาสัมพันธ์"
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                    placeholder={
+                      newsFormData.type === "ข่าวประชาสัมพันธ์"
+                        ? "(สร้างอัตโนมัติ)"
+                        : ""
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    รายละเอียด
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={newsFormData.details}
+                    onChange={(e) =>
+                      setNewsFormData({
+                        ...newsFormData,
+                        details: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none resize-none"
+                  ></textarea>
+                </div>
+              </section>
+              <section className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  รูปภาพ
+                </h4>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    {newsFormData.type === "ข่าวประชาสัมพันธ์"
+                      ? "รูปภาพ"
+                      : "รูปปก"}
+                  </label>
+                  {newsCoverImage ? (
+                    <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
+                      <FileIcon />
+                      <span className="truncate flex-1">
+                        {newsCoverImage.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setNewsCoverImage(null)}
+                        className="text-red-500"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 transition-all cursor-pointer relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files?.[0])
+                            setNewsCoverImage(e.target.files[0]);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <CloudUploadIcon />
+                      <span className="text-sm text-gray-400">อัปโหลดรูป</span>
+                    </div>
+                  )}
+                </div>
+                {newsFormData.type === "ข่าวสารทั่วไป" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">
+                      รูปประกอบเพิ่มเติม
+                    </label>
+                    <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 transition-all cursor-pointer relative">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files)
+                            setNewsGalleryImages((prev) => [
+                              ...prev,
+                              ...Array.from(e.target.files!),
+                            ]);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <CloudUploadIcon />
+                      <span className="text-sm text-gray-400">
+                        อัปโหลดรูปประกอบ
+                      </span>
+                    </div>
+                    {newsGalleryImages.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {newsGalleryImages.map((f, i) => (
+                          <div
+                            key={i}
+                            className="bg-gray-50 p-2 rounded flex justify-between text-xs"
+                          >
+                            {f.name}{" "}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewsGalleryImages((prev) =>
+                                  prev.filter((_, idx) => idx !== i)
+                                )
+                              }
+                              className="text-red-500"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+              <section className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      newsFormData.status === "published"
+                        ? "bg-green-100 text-green-600"
+                        : "bg-gray-200 text-gray-500"
+                    }`}
+                  >
+                    {newsFormData.status === "published" ? (
+                      <EyeIcon />
+                    ) : (
+                      <EyeOffIcon />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">สถานะ</p>
+                    <p className="text-xs text-gray-500">
+                      {newsFormData.status === "published" ? "แสดงผล" : "ซ่อน"}
+                    </p>
+                  </div>
+                </div>
+                <select
+                  value={newsFormData.status}
+                  onChange={(e) =>
+                    setNewsFormData({ ...newsFormData, status: e.target.value })
+                  }
+                  className="p-2 bg-white border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="published">เผยแพร่</option>
+                  <option value="draft">ไม่เผยแพร่</option>
+                </select>
+              </section>
+            </form>
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setIsNewsModalOpen(false)}
+                className="px-6 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-white transition-all"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleNewsSubmit}
+                disabled={isSubmitting}
+                className="px-8 py-3 bg-[#ED1C24] text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all"
+              >
+                {isSubmitting ? "..." : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- VIEW MODALS --- */}
+      {isViewModalOpen && selectedDoc && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsViewModalOpen(false)}
           ></div>
-          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-gray-50 to-white p-6 border-b border-gray-100 flex justify-between items-start">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl relative z-10 animate-scale-in overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-gray-50 to-white px-8 py-6 border-b border-gray-100 flex justify-between items-start">
+              <div className="space-y-3 flex-1 mr-4">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                       selectedDoc.status === "published"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-100 text-gray-500"
+                        ? "bg-green-50 text-green-600 border-green-100"
+                        : "bg-gray-50 text-gray-500 border-gray-200"
                     }`}
                   >
                     {selectedDoc.status === "published" ? "Published" : "Draft"}
                   </span>
-                  <span className="text-xs text-gray-400">|</span>
-                  <span className="text-xs font-bold text-[#ED1C24]">
+                  <span className="text-gray-300">|</span>
+                  <span className="text-xs font-bold text-[#ED1C24] bg-red-50 px-2 py-0.5 rounded-md">
                     {selectedDoc.book_no}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                <h3 className="text-2xl font-black text-gray-900 leading-snug">
                   {selectedDoc.title}
                 </h3>
               </div>
               <button
                 onClick={() => setIsViewModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                className="group w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:border-red-100 hover:text-red-500 transition-all shadow-sm"
               >
-                <span className="text-lg font-bold">×</span>
+                <span className="text-xl font-bold group-hover:scale-110 transition-transform">
+                  ×
+                </span>
               </button>
             </div>
-
-            {/* Body */}
-            <div className="p-8 overflow-y-auto custom-scrollbar space-y-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase mb-1">
-                    ส่วนงานเจ้าของ
+            <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    ส่วนงาน
                   </p>
-                  <p className="font-semibold text-gray-700">
+                  <p className="font-bold text-gray-800 text-sm">
                     {selectedDoc.dept}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase mb-1">
-                    ลงวันที่
+                <div className="space-y-1">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    ประเภท
                   </p>
-                  <p className="font-semibold text-gray-700">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${getTypeBadgeColor(
+                      selectedDoc.type
+                    )}`}
+                  >
+                    {selectedDoc.type}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    วันที่
+                  </p>
+                  <p className="font-bold text-gray-800 text-sm">
                     {formatThaiDate(selectedDoc.date)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase mb-1">
-                    ประเภท
-                  </p>
-                  <p className="font-semibold text-gray-700">
-                    {selectedDoc.type}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase mb-1">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                     โทรศัพท์
                   </p>
-                  <p className="font-semibold text-gray-700">
+                  <p className="font-bold text-gray-800 text-sm">
                     {selectedDoc.phone || "-"}
                   </p>
                 </div>
               </div>
-
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <p className="text-xs text-gray-400 font-bold uppercase mb-2">
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1 h-4 bg-[#ED1C24] rounded-full"></span>{" "}
                   รายละเอียด
-                </p>
-                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-gray-100">
                   {selectedDoc.details || "-"}
                 </p>
               </div>
-
-              {/* Attachments */}
-              <div className="space-y-4">
+              <div className="space-y-6 pt-4 border-t border-gray-100">
                 {selectedDoc.links?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 font-bold uppercase mb-2">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-1 h-4 bg-blue-500 rounded-full"></span>{" "}
                       ลิงก์แนบ
-                    </p>
-                    <ul className="space-y-2">
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedDoc.links.map((link: any, i: number) => (
-                        <li key={i}>
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 bg-red-50/50 rounded-lg hover:bg-red-50 transition-colors"
-                          >
-                            <LinkIcon /> {link.name || link.url}
-                          </a>
-                        </li>
+                        <a
+                          key={i}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                            <LinkIcon />
+                          </div>
+                          <span className="text-sm font-medium text-gray-700 truncate group-hover:text-blue-700">
+                            {link.name || link.url}
+                          </span>
+                        </a>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
                 {selectedDoc.files?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 font-bold uppercase mb-2">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-1 h-4 bg-orange-500 rounded-full"></span>{" "}
                       ไฟล์เอกสาร
-                    </p>
-                    <div className="space-y-2">
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedDoc.files.map((file: any, i: number) => (
                         <a
                           key={i}
                           href={file.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group bg-white"
+                          className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/30 transition-all group"
                         >
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
-                              <FileIcon />
-                            </div>
-                            <div className="flex flex-col truncate">
-                              <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
-                                {file.name}
-                              </span>
-                              <span className="text-[10px] text-gray-400">
-                                {file.size || "Unknown size"}
-                              </span>
-                            </div>
+                          <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                            <FileIcon />
+                          </div>
+                          <div className="flex flex-col truncate">
+                            <span className="text-sm font-medium text-gray-700 truncate group-hover:text-orange-700">
+                              {file.name}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                              {file.size || "Unknown size"}
+                            </span>
                           </div>
                         </a>
                       ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {isViewNewsModalOpen && selectedNews && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsViewNewsModalOpen(false)}
+          ></div>
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl relative z-10 animate-scale-in flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="relative bg-gray-100">
+              {selectedNews.cover_image?.url ? (
+                <div className="w-full h-64 sm:h-80 overflow-hidden relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10"></div>
+                  <img
+                    src={selectedNews.cover_image.url}
+                    alt="Cover"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => setIsViewNewsModalOpen(false)}
+                    className="absolute top-6 right-6 z-20 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:bg-white hover:text-red-500 transition-all"
+                  >
+                    <span className="text-xl font-bold">×</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full h-32 flex items-center justify-center bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                  <div className="text-gray-300">
+                    <NewsIcon />
+                  </div>
+                  <button
+                    onClick={() => setIsViewNewsModalOpen(false)}
+                    className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                  >
+                    <span className="text-xl font-bold">×</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+              <div className="space-y-6">
+                <div className="space-y-3 pb-6 border-b border-gray-100">
+                  <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
+                    <span className="bg-gray-100 px-2 py-1 rounded-md">
+                      {formatThaiDate(selectedNews.date)}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-md border ${getTypeBadgeColor(
+                        selectedNews.type
+                      )}`}
+                    >
+                      {selectedNews.type === "ข่าวประชาสัมพันธ์ภายใน ปข.6"
+                        ? "ข่าวสารทั่วไป"
+                        : "ข่าวประชาสัมพันธ์"}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-md uppercase ${
+                        selectedNews.status === "published"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {selectedNews.status}
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-gray-900 leading-tight">
+                    {selectedNews.title}
+                  </h3>
+                </div>
+                <div className="prose prose-sm max-w-none text-gray-600">
+                  <p className="leading-relaxed whitespace-pre-wrap">
+                    {selectedNews.details || "ไม่มีรายละเอียด"}
+                  </p>
+                </div>
+                {selectedNews.gallery_images?.length > 0 && (
+                  <div className="space-y-3 pt-4">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-1 h-4 bg-[#ED1C24] rounded-full"></span>{" "}
+                      แกลเลอรีรูปภาพ
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedNews.gallery_images.map(
+                        (img: any, i: number) => (
+                          <div
+                            key={i}
+                            className="group relative rounded-xl overflow-hidden border border-gray-100 shadow-sm aspect-[4/3] cursor-zoom-in"
+                          >
+                            <img
+                              src={img.url}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              alt={`Gallery ${i}`}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 )}
@@ -1403,7 +2131,7 @@ export default function DashboardPage() {
   );
 }
 
-// --- Icons ---
+// Icons
 const HomeIcon = () => (
   <svg
     width="20"
@@ -1480,7 +2208,7 @@ const SettingIcon = ({ size = 20 }: { size?: number }) => (
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
-      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
     />
     <path
       strokeLinecap="round"
