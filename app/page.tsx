@@ -17,10 +17,16 @@ export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
-  // State สำหรับเลือก Dashboard
+  // --- State Dashboard ---
   const [activeDashboard, setActiveDashboard] = useState<"income" | "fuze">(
     "income"
   );
+
+  // --- State News (Tabs & Carousel) ---
+  const [activeNewsTab, setActiveNewsTab] = useState<"general" | "pr">(
+    "general"
+  );
+  const newsContainerRef = useRef<HTMLDivElement>(null);
 
   // --- State สำหรับข้อมูลเอกสาร ---
   const [circularLetters, setCircularLetters] = useState<any[]>([]);
@@ -110,147 +116,32 @@ export default function Home() {
 
   // --- Helper: Get News Cover Image (SVG) ---
   const getNewsCover = (id: number) => {
-    switch (id) {
-      case 1: // ประชุมสรุปผล
-        return (
-          <svg
-            className="w-full h-full"
-            viewBox="0 0 400 250"
-            fill="none"
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <rect width="400" height="250" fill="#F0F9FF" />
-            <circle cx="350" cy="50" r="100" fill="#BAE6FD" fillOpacity="0.5" />
-            <rect
-              x="60"
-              y="80"
-              width="160"
-              height="100"
-              rx="8"
-              fill="white"
-              stroke="#38BDF8"
-              strokeWidth="2"
-            />
-            <path
-              d="M80 140 L110 110 L140 130 L190 90"
-              stroke="#0EA5E9"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="80" cy="140" r="3" fill="#0EA5E9" />
-            <circle cx="110" cy="110" r="3" fill="#0EA5E9" />
-            <circle cx="140" cy="130" r="3" fill="#0EA5E9" />
-            <circle cx="190" cy="90" r="3" fill="#0EA5E9" />
-            <rect
-              x="240"
-              y="100"
-              width="80"
-              height="80"
-              rx="8"
-              fill="#E0F2FE"
-            />
-            <path
-              d="M260 120 H300 M260 140 H290 M260 160 H280"
-              stroke="#7DD3FC"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </svg>
-        );
-      case 2: // สอบเลื่อนระดับ
-        return (
-          <svg
-            className="w-full h-full"
-            viewBox="0 0 400 250"
-            fill="none"
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <rect width="400" height="250" fill="#FFFBEB" />
-            <path d="M0 200 L400 150 V250 H0 Z" fill="#FEF3C7" />
-            <rect
-              x="150"
-              y="50"
-              width="100"
-              height="140"
-              rx="4"
-              fill="white"
-              stroke="#F59E0B"
-              strokeWidth="2"
-              transform="rotate(-5 200 125)"
-            />
-            <rect
-              x="165"
-              y="70"
-              width="40"
-              height="40"
-              rx="20"
-              fill="#FDE68A"
-              transform="rotate(-5 200 125)"
-            />
-            <path
-              d="M175 90 L185 100 L195 80"
-              stroke="#D97706"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              transform="rotate(-5 200 125)"
-            />
-            <rect
-              x="165"
-              y="125"
-              width="70"
-              height="6"
-              rx="3"
-              fill="#F3F4F6"
-              transform="rotate(-5 200 125)"
-            />
-            <rect
-              x="165"
-              y="140"
-              width="50"
-              height="6"
-              rx="3"
-              fill="#F3F4F6"
-              transform="rotate(-5 200 125)"
-            />
-            <circle cx="320" cy="80" r="40" fill="#FCD34D" fillOpacity="0.3" />
-          </svg>
-        );
-      case 3: // กิจกรรม CSR
-        return (
-          <svg
-            className="w-full h-full"
-            viewBox="0 0 400 250"
-            fill="none"
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <rect width="400" height="250" fill="#FEF2F2" />
-            <circle cx="50" cy="200" r="80" fill="#FECACA" fillOpacity="0.5" />
-            <path
-              d="M200 80 C170 50 120 80 140 130 L200 190 L260 130 C280 80 230 50 200 80 Z"
-              fill="#EF4444"
-              className="animate-pulse"
-            />
-            <path
-              d="M200 80 C170 50 120 80 140 130 L200 190 L260 130 C280 80 230 50 200 80 Z"
-              stroke="#B91C1C"
-              strokeWidth="2"
-              strokeOpacity="0.2"
-            />
-            <path
-              d="M100 50 L120 70 M300 50 L280 70 M200 30 V50"
-              stroke="#FCA5A5"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <circle cx="280" cy="180" r="6" fill="#FCA5A5" />
-            <circle cx="120" cy="180" r="4" fill="#FCA5A5" />
-          </svg>
-        );
-      default:
-        return null;
-    }
+    const colors = [
+      { bg: "#F0F9FF", main: "#0EA5E9" },
+      { bg: "#FFFBEB", main: "#D97706" },
+      { bg: "#FEF2F2", main: "#EF4444" },
+      { bg: "#F5F3FF", main: "#8B5CF6" },
+    ];
+    const c = colors[id % colors.length];
+
+    return (
+      <svg
+        className="w-full h-full"
+        viewBox="0 0 400 250"
+        fill="none"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <rect width="400" height="250" fill={c.bg} />
+        <circle cx="350" cy="50" r="100" fill={c.main} fillOpacity="0.1" />
+        <circle cx="50" cy="200" r="80" fill={c.main} fillOpacity="0.1" />
+        <path
+          d="M150 100 L250 150 M150 150 L250 100"
+          stroke={c.main}
+          strokeWidth="3"
+          opacity="0.2"
+        />
+      </svg>
+    );
   };
 
   // --- Check Session on Mount ---
@@ -312,23 +203,25 @@ export default function Home() {
       }
     }, 10000);
     if (!isLoadingDocs && iframeLoaded) {
-      // เพิ่ม Delay เล็กน้อยเพื่อให้ Animation ลื่นไหล
       const smoothDelay = setTimeout(() => {
         setIsSiteReady(true);
         clearTimeout(safetyTimeout);
       }, 800);
       return () => clearTimeout(smoothDelay);
     }
-
     return () => clearTimeout(safetyTimeout);
   }, [isLoadingDocs, iframeLoaded]);
 
   // --- Filter Logic ---
   const filteredDocs = circularLetters.filter((doc) => {
     const term = searchTerm.toLowerCase();
+    const detailsMatch = doc.details
+      ? doc.details.toLowerCase().includes(term)
+      : false;
     const matchesSearch =
       doc.title.toLowerCase().includes(term) ||
-      doc.bookNo.toLowerCase().includes(term);
+      doc.bookNo.toLowerCase().includes(term) ||
+      detailsMatch;
     const matchesDept = filterDept ? doc.dept === filterDept : true;
     return matchesSearch && matchesDept;
   });
@@ -407,9 +300,27 @@ export default function Home() {
     }
   };
 
+  // --- Carousel Scroll Logic ---
+  const scrollNews = (direction: "left" | "right") => {
+    if (newsContainerRef.current) {
+      const scrollAmount = 350;
+      const currentScroll = newsContainerRef.current.scrollLeft;
+      const targetScroll =
+        direction === "left"
+          ? currentScroll - scrollAmount
+          : currentScroll + scrollAmount;
+
+      newsContainerRef.current.scrollTo({
+        left: targetScroll,
+        behavior: "smooth",
+      });
+    }
+  };
+
   // --- Data ---
   const navItems = [
     { name: "หน้าหลัก", href: "/", active: true },
+    { name: "News Update", href: "#news", active: false },
     { name: "Dashboard", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
@@ -448,7 +359,6 @@ export default function Home() {
         { name: "เอกสารแบบพิมพ์ตามส่วนงาน", href: "#" },
       ],
     },
-    { name: "ข่าวสาร", href: "#news", active: false },
     { name: "ติดต่อเรา", href: "#", active: false },
     { name: "Admin", href: "#", active: false },
   ];
@@ -463,9 +373,46 @@ export default function Home() {
     { name: "หตล.", phone: "098-9999999" },
   ];
 
-  const newsItems = [
+  // --- NEWS DATA (Separated) ---
+  const generalNewsItems = [
     {
       id: 1,
+      date: "14",
+      month: "ธ.ค.",
+      title: "ประกาศนโยบายคุณภาพ ปณท ประจำปี 2568",
+      excerpt: "ยกระดับมาตรฐานการให้บริการด้วยหัวใจ ไปรษณีย์ไทยเพื่อคนไทย...",
+      author: "ส่วนกลาง",
+    },
+    {
+      id: 2,
+      date: "10",
+      month: "ธ.ค.",
+      title: "แจ้งเปลี่ยนแปลงระเบียบการเบิกจ่ายสวัสดิการ",
+      excerpt:
+        "อัปเดตข้อมูลระเบียบการเบิกจ่ายค่ารักษาพยาบาลและสวัสดิการอื่นๆ...",
+      author: "ทรัพยากรบุคคล",
+    },
+    {
+      id: 3,
+      date: "05",
+      month: "ธ.ค.",
+      title: "โครงการไปรษณีย์ไทยใสสะอาด",
+      excerpt: "ร่วมรณรงค์ต่อต้านการทุจริตและประพฤติมิชอบในองค์กร...",
+      author: "ตรวจสอบภายใน",
+    },
+    {
+      id: 4,
+      date: "01",
+      month: "ธ.ค.",
+      title: "สรุปผลการดำเนินงานครึ่งปีหลัง",
+      excerpt: "รายงานสรุปภาพรวมความสำเร็จและเป้าหมายในอนาคต...",
+      author: "แผนกแผนงาน",
+    },
+  ];
+
+  const prNewsItems = [
+    {
+      id: 101,
       date: "14",
       month: "ธ.ค.",
       title: "ประชุมสรุปผลการดำเนินงาน ประจำไตรมาสที่ 4/2567",
@@ -474,7 +421,7 @@ export default function Home() {
       author: "แผนกอำนวยการ",
     },
     {
-      id: 2,
+      id: 102,
       date: "12",
       month: "ธ.ค.",
       title: "เปิดรับสมัครสอบเลื่อนระดับพนักงาน ประจำปี 2568",
@@ -483,7 +430,7 @@ export default function Home() {
       author: "ส่วนบุคคล",
     },
     {
-      id: 3,
+      id: 103,
       date: "09",
       month: "ธ.ค.",
       title: 'กิจกรรม "ไปรษณีย์ไทย...เพื่อสังคม" มอบทุนการศึกษา',
@@ -491,17 +438,27 @@ export default function Home() {
         "ภาพบรรยากาศกิจกรรมมอบทุนการศึกษาและอุปกรณ์กีฬาให้กับโรงเรียนในพื้นที่ห่างไกล...",
       author: "ประชาสัมพันธ์",
     },
+    {
+      id: 104,
+      date: "01",
+      month: "ธ.ค.",
+      title: "Big Cleaning Day ประจำปี",
+      excerpt: "รวมพลังชาว ปข.6 ร่วมใจทำความสะอาดสำนักงาน...",
+      author: "ส่วนอาคารฯ",
+    },
   ];
+
+  const currentNewsData =
+    activeNewsTab === "general" ? generalNewsItems : prNewsItems;
 
   return (
     <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden relative">
-      {/* 🟢 SPLASH SCREEN (PRELOADER) : รูปใหญ่ + นิ่ง (ไม่มี Effect) */}
+      {/* 🟢 SPLASH SCREEN */}
       <div
         className={`fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
           isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
-        {/* --- ส่วนรูปภาพ --- */}
         <div className="mb-8 relative">
           <img
             src="/loading_1.jpg"
@@ -509,21 +466,16 @@ export default function Home() {
             className="w-80 md:w-[500px] h-auto object-contain rounded-2xl shadow-2xl"
           />
         </div>
-
-        {/* --- ส่วนข้อความ --- */}
         <h2 className="mt-6 text-3xl font-black text-gray-900 tracking-tight">
           กำลังเข้าสู่ระบบ...
         </h2>
         <p className="text-gray-400 text-sm mt-2 font-medium tracking-widest uppercase">
           Thailand Post Sector 6
         </p>
-
-        {/* --- ส่วน Loading Bar --- */}
         <div className="w-80 md:w-96 h-2 bg-gray-100 rounded-full mt-8 overflow-hidden relative">
           <div className="absolute top-0 left-0 h-full w-full bg-[#ED1C24] origin-left animate-[shimmer_2s_infinite]"></div>
           <div className="absolute top-0 left-0 h-full w-1/3 bg-white/30 blur-sm animate-[dash-flow_1.5s_infinite]"></div>
         </div>
-
         <p className="mt-4 text-xs text-gray-400">
           {iframeLoaded ? "ข้อมูลพร้อมใช้งาน" : "กำลังโหลด Dashboard..."}
         </p>
@@ -563,39 +515,9 @@ export default function Home() {
         .animate-float-card-1 {
           animation: float-card 5s ease-in-out infinite;
         }
-        .animate-float-card-2 {
-          animation: float-card 6s ease-in-out infinite 1s;
+        .animate-ken-burns {
+          animation: ken-burns 20s ease-out infinite alternate;
         }
-        .animate-float-card-3 {
-          animation: float-card 7s ease-in-out infinite 0.5s;
-        }
-        @keyframes pulse-ring {
-          0% {
-            transform: scale(0.8);
-            opacity: 0.5;
-          }
-          100% {
-            transform: scale(2.5);
-            opacity: 0;
-          }
-        }
-        .animate-pulse-ring {
-          animation: pulse-ring 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-        @keyframes shimmer {
-          0% {
-            background-position: 200% center;
-          }
-          100% {
-            background-position: -200% center;
-          }
-        }
-        .text-shimmer {
-          background-size: 200% auto;
-          animation: shimmer 5s linear infinite;
-        }
-
-        /* ✅ UPDATED: Ken Burns Effect เร็วขึ้น (15s) */
         @keyframes ken-burns {
           0% {
             transform: scale(1) translate(0, 0);
@@ -604,11 +526,6 @@ export default function Home() {
             transform: scale(1.15) translate(-1%, -1%);
           }
         }
-        .animate-ken-burns {
-          animation: ken-burns 20s ease-out infinite alternate;
-        }
-
-        /* ✅ UPDATED: Fade In Up เร็วขึ้น (0.6s) */
         @keyframes fade-in-up {
           0% {
             opacity: 0;
@@ -623,8 +540,14 @@ export default function Home() {
           animation: fade-in-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
           opacity: 0;
         }
-
-        /* ✅ UPDATED: Delay ไวขึ้น */
+        @keyframes shimmer {
+          0% {
+            background-position: 200% center;
+          }
+          100% {
+            background-position: -200% center;
+          }
+        }
         .delay-100 {
           animation-delay: 0.1s;
         }
@@ -637,18 +560,24 @@ export default function Home() {
         .delay-500 {
           animation-delay: 0.4s;
         }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
 
       {/* NAVBAR */}
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
-            ? "bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-md py-2" // Scrolled
-            : "bg-gradient-to-b from-black/80 via-black/40 to-transparent py-6" // Top
+            ? "bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-md py-2"
+            : "bg-gradient-to-b from-black/80 via-black/40 to-transparent py-6"
         }`}
       >
         <div className="w-full px-6 md:px-10 h-16 flex justify-between items-center">
-          {/* --- LOGO & BRANDING --- */}
           <Link
             href="/"
             className="flex items-center gap-4 group flex-shrink-0"
@@ -694,7 +623,6 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* --- MENU ITEMS --- */}
           <div
             className={`hidden md:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
@@ -704,7 +632,6 @@ export default function Home() {
           >
             {navItems.map((item, index) => (
               <div key={index} className="relative group">
-                {/* --- Main Menu Link --- */}
                 <Link
                   href={item.href}
                   onClick={(e) => handleNavClick(e, item)}
@@ -734,7 +661,6 @@ export default function Home() {
                   )}
                 </Link>
 
-                {/* --- Dropdown Menu --- */}
                 {item.dropdown && (
                   <div className="absolute top-full left-0 mt-2 w-max min-w-[220px] max-w-[320px] bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left z-50">
                     <div className="py-2">
@@ -756,26 +682,19 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* HERO SECTION (UPDATED: All White Text) */}
-      <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
-        {/* --- ส่วนพื้นหลังรูปภาพเต็มจอ --- */}
+      {/* ✅ HERO SECTION (UPDATED: Not Full Screen) */}
+      <section className="relative w-full h-[550px] md:h-[750px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
             src="/hero_img3.jpg"
             alt="Regional Postal Bureau Region 6 Office"
             className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
           />
-
-          {/* Dark Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80"></div>
-
-          {/* Overlay Texture */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
         </div>
 
-        {/* --- ส่วนเนื้อหาข้อความตรงกลาง --- */}
         <div className="container relative z-20 max-w-5xl mx-auto px-6 flex flex-col items-center justify-center text-center space-y-8 mt-16">
-          {/* Badge */}
           <div className="animate-fade-in-up delay-100 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl cursor-default transition-transform hover:scale-105 hover:bg-white/20">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -786,25 +705,20 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Main Title: Changed to pure white */}
           <div className="space-y-2 animate-fade-in-up delay-200">
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl">
               ขับเคลื่อนอนาคต <br />
-              {/* ✅ เปลี่ยนเป็น text-white ล้วน */}
               <span className="text-white">Information</span> <br />
               <span className="text-white">Logistics</span>
             </h1>
           </div>
 
-          {/* Description: Changed to pure white */}
-          {/* ✅ เปลี่ยนเป็น text-white */}
           <p className="animate-fade-in-up delay-300 text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-lg">
             ยกระดับการบริหารงานไปรษณีย์ด้วยนวัตกรรมดิจิทัล{" "}
             <br className="hidden md:block" />
             เชื่อมโยงข้อมูล ผสานเครือข่าย เพื่อบริการที่เหนือกว่า
           </p>
 
-          {/* ลูกศรชี้ลง */}
           <div className="absolute bottom-10 animate-bounce delay-500 opacity-80">
             <svg
               className="w-10 h-10 text-white drop-shadow-md"
@@ -823,14 +737,158 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD (UPDATED CODE) */}
-      {/* ✅ SECTION: DASHBOARD (ปรับขนาดเล็กลง ดูง่ายขึ้น) */}
+      {/* ✅ SECTION: NEWS UPDATE (Above Dashboard) */}
+      <section
+        id="news"
+        className="py-20 px-4 md:px-6 bg-white border-b border-gray-100 relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 w-64 h-64 bg-red-50 rounded-full blur-3xl opacity-60 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          {/* Header & Tabs */}
+          <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
+            <div>
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-[#ED1C24] text-[10px] font-bold tracking-widest uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
+                Updates
+              </span>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
+                News Update
+              </h2>
+              <p className="text-gray-500 mt-2 font-medium">
+                ติดตามข่าวสารและความเคลื่อนไหวล่าสุด
+              </p>
+            </div>
+
+            {/* Tabs Selector */}
+            <div className="bg-gray-100 p-1.5 rounded-xl flex items-center gap-1 self-start md:self-end">
+              <button
+                onClick={() => setActiveNewsTab("general")}
+                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
+                  activeNewsTab === "general"
+                    ? "bg-white text-[#ED1C24] shadow-md"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                ข่าวประชาสัมพันธ์ทั่วไป ปณท
+              </button>
+              <button
+                onClick={() => setActiveNewsTab("pr")}
+                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
+                  activeNewsTab === "pr"
+                    ? "bg-white text-[#ED1C24] shadow-md"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                ประชาสัมพันธ์
+              </button>
+            </div>
+          </div>
+
+          {/* Carousel Container */}
+          <div className="relative group">
+            {/* Scroll Buttons */}
+            <button
+              onClick={() => scrollNews("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => scrollNews("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+
+            {/* Slider Track */}
+            <div
+              ref={newsContainerRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide py-4 px-2"
+            >
+              {currentNewsData.map((news, idx) => (
+                <article
+                  key={idx}
+                  className="min-w-[85%] md:min-w-[350px] lg:min-w-[380px] snap-center bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl hover:border-red-100 transition-all duration-300 flex flex-col h-full hover:-translate-y-2 select-none"
+                >
+                  <div className="h-48 bg-gray-50 relative overflow-hidden">
+                    {getNewsCover(news.id)}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl text-center shadow-md border border-white/50">
+                      <span className="block text-lg font-black text-[#ED1C24] leading-none">
+                        {news.date}
+                      </span>
+                      <span className="block text-[10px] font-bold text-gray-800 uppercase tracking-wide">
+                        {news.month}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-6 flex flex-col flex-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                      {news.author}
+                    </span>
+                    <h4 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-snug group-hover:text-[#ED1C24] transition-colors">
+                      {news.title}
+                    </h4>
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-4 leading-relaxed flex-1">
+                      {news.excerpt}
+                    </p>
+                    <div className="pt-4 border-t border-gray-50 flex justify-end">
+                      <span className="text-xs font-bold text-[#ED1C24] flex items-center gap-1 cursor-pointer">
+                        อ่านต่อ
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M14 5l7 7m0 0l-7 7m7-7H3"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ✅ SECTION: DASHBOARD */}
       <section
         id="dashboard"
-        className="py-20 px-4 md:px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
+        className="py-20 px-4 md:px-6 bg-gradient-to-b from-gray-50 to-white border-t border-gray-200"
       >
         <div className="max-w-7xl mx-auto w-full">
-          {/* Header */}
           <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase mb-2">
@@ -841,10 +899,7 @@ export default function Home() {
                 Dashboard สรุปผลการดำเนินงาน
               </h2>
             </div>
-
-            {/* Dashboard Selector & Fallback Button */}
             <div className="flex flex-col sm:flex-row gap-2 md:self-end">
-              {/* ปุ่มเปิดหน้าต่างใหม่ */}
               <a
                 href={dashboardLinks[activeDashboard]}
                 target="_blank"
@@ -866,8 +921,6 @@ export default function Home() {
                   />
                 </svg>
               </a>
-
-              {/* ปุ่มเลือก Dashboard */}
               <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm">
                 <button
                   onClick={() => setActiveDashboard("income")}
@@ -893,13 +946,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Iframe Container */}
-          {/* จุดที่แก้ไขความสูง: 
-              - h-[500px] สำหรับมือถือ (ดูง่ายขึ้น ไม่ยาวเกิน)
-              - md:h-[650px] สำหรับจอคอม (เห็นข้อมูลครบโดยไม่ต้อง scroll เยอะ)
-          */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative w-full h-[500px] md:h-[650px] transition-all duration-300">
-            {/* Loading Indicator */}
             {!iframeLoaded && (
               <div className="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10 p-4 text-center">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mb-4"></div>
@@ -908,7 +955,6 @@ export default function Home() {
                 </p>
               </div>
             )}
-
             <iframe
               key={activeDashboard}
               src={dashboardLinks[activeDashboard]}
@@ -934,7 +980,6 @@ export default function Home() {
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
       >
         <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
           <div className="mb-8">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-[#ED1C24] text-xs font-bold tracking-widest uppercase mb-2">
               <span className="w-2 h-2 rounded-full bg-[#ED1C24] animate-pulse"></span>
@@ -948,13 +993,9 @@ export default function Home() {
             </p>
           </div>
 
-          {/* CARD CONTAINER */}
           <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
-            {/* --- TOOLBAR / SEARCH SECTION --- */}
             <div className="p-5 md:p-6 bg-gray-50 border-b border-gray-200 flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Search Inputs Group */}
               <div className="flex flex-col md:flex-row gap-4 w-full lg:w-3/4">
-                {/* Text Search */}
                 <div className="relative w-full md:w-2/3">
                   <label htmlFor="search-docs" className="sr-only">
                     ค้นหาเอกสาร
@@ -983,8 +1024,6 @@ export default function Home() {
                     className="pl-12 pr-4 py-2.5 w-full bg-white border border-gray-300 text-gray-900 rounded-xl text-sm font-medium placeholder:text-gray-500 focus:border-[#ED1C24] focus:ring-4 focus:ring-red-50 outline-none transition-all shadow-sm"
                   />
                 </div>
-
-                {/* Dropdown Filter */}
                 <div className="relative w-full md:w-1/3">
                   <label htmlFor="filter-dept" className="sr-only">
                     เลือกส่วนงาน
@@ -1019,8 +1058,6 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
-              {/* Counter Badge */}
               <div className="w-full lg:w-auto flex justify-end">
                 <span className="inline-flex items-center px-3 py-1 rounded-lg bg-white border border-gray-200 text-sm font-bold text-gray-600 shadow-sm whitespace-nowrap">
                   พบข้อมูล{" "}
@@ -1032,7 +1069,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* --- TABLE CONTENT --- */}
             <div className="relative min-h-[400px] bg-transparent p-2 md:p-4 rounded-b-3xl">
               {isLoadingDocs ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 gap-4 rounded-3xl">
@@ -1078,19 +1114,15 @@ export default function Home() {
                   <table className="w-full min-w-[900px] border-separate border-spacing-y-3">
                     <thead className="hidden md:table-header-group">
                       <tr>
-                        {/* Col 1 Header */}
                         <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-left pl-8 bg-gray-100 rounded-l-xl border-y border-l border-gray-200/50">
                           หัวข้อเรื่อง / รายละเอียด
                         </th>
-                        {/* Col 2 Header */}
                         <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-40 bg-gray-100 border-y border-gray-200/50">
                           ประเภท / วันที่
                         </th>
-                        {/* Col 3 Header */}
                         <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-28 bg-gray-100 border-y border-gray-200/50">
                           ส่วนงาน
                         </th>
-                        {/* Col 4 Header (Download) */}
                         <th className="py-4 px-6 text-sm font-black text-gray-900 uppercase tracking-wider text-center w-28 bg-gray-100 rounded-r-xl border-y border-r border-gray-200/50">
                           ดาวน์โหลด
                         </th>
@@ -1103,7 +1135,6 @@ export default function Home() {
                           onClick={() => setSelectedDocument(doc)}
                           className="group cursor-pointer transition-all duration-300 hover:-translate-y-1"
                         >
-                          {/* Col 1: Title */}
                           <td className="bg-white p-6 rounded-l-2xl shadow-sm group-hover:shadow-lg transition-all relative overflow-hidden">
                             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="flex items-start gap-4">
@@ -1155,8 +1186,6 @@ export default function Home() {
                               </div>
                             </div>
                           </td>
-
-                          {/* Col 2: Date & Type */}
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
                             <div className="flex flex-col items-center justify-center gap-2">
                               <span
@@ -1178,8 +1207,6 @@ export default function Home() {
                               </span>
                             </div>
                           </td>
-
-                          {/* Col 3: Department */}
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
                             <span
                               className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
@@ -1189,8 +1216,6 @@ export default function Home() {
                               {doc.dept}
                             </span>
                           </td>
-
-                          {/* Col 4: Download Button (UPDATED) */}
                           <td className="bg-white p-4 align-middle text-center rounded-r-2xl shadow-sm group-hover:shadow-lg transition-all">
                             {doc.files && doc.files.length > 0 ? (
                               <a
@@ -1198,9 +1223,7 @@ export default function Home() {
                                 download={doc.files[0].name}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onClick={(e) =>
-                                  e.stopPropagation()
-                                } /* ป้องกันไม่ให้คลิกแล้ว Modal เด้ง */
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-10 h-10 rounded-xl bg-red-50 text-[#ED1C24] hover:bg-[#ED1C24] hover:text-white transition-all duration-300 flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 border border-red-100 hover:border-red-500"
                                 title={`ดาวน์โหลด: ${doc.files[0].name}`}
                               >
@@ -1230,7 +1253,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* --- PAGINATION --- */}
             {totalPages > 1 && (
               <div className="border-t border-gray-200 bg-gray-50 p-4 flex justify-between items-center">
                 <button
@@ -1256,108 +1278,6 @@ export default function Home() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION: NEWS */}
-      <section
-        id="news"
-        className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200 relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gray-50 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
-            <div>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-[#ED1C24] text-[10px] font-bold tracking-widest uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
-                Update & Activities
-              </span>
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
-                ข่าวสารล่าสุด
-              </h2>
-              <p className="text-gray-500 mt-2 font-medium max-w-lg">
-                อัปเดตข้อมูลข่าวสาร กิจกรรม และความเคลื่อนไหว
-              </p>
-            </div>
-            <Link
-              href="#"
-              className="group flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:border-red-200 hover:text-[#ED1C24] hover:shadow-sm transition-all"
-            >
-              ดูทั้งหมด
-              <svg
-                className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {newsItems.map((news, idx) => (
-              <article
-                key={idx}
-                className="group bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-200 hover:shadow-2xl hover:shadow-gray-300/50 transition-all duration-300 flex flex-col h-full hover:-translate-y-2"
-              >
-                {/* --- ส่วนรูปภาพ --- */}
-                <div className="h-56 bg-gray-100 relative overflow-hidden group-hover:scale-105 transition-transform duration-700">
-                  {getNewsCover(news.id)}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-white/90 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm">
-                        {news.author}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl text-center shadow-lg border border-white/50">
-                    <span className="block text-xl font-black text-[#ED1C24] leading-none">
-                      {news.date}
-                    </span>
-                    <span className="block text-[10px] font-bold text-gray-800 uppercase tracking-wide">
-                      {news.month}
-                    </span>
-                  </div>
-                </div>
-
-                {/* --- ส่วนเนื้อหา --- */}
-                <div className="p-8 flex flex-col flex-1 relative bg-white">
-                  <h4 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-[#ED1C24] transition-colors cursor-pointer">
-                    {news.title}
-                  </h4>
-                  <p className="text-sm text-gray-500 line-clamp-2 mb-6 leading-relaxed flex-1">
-                    {news.excerpt}
-                  </p>
-                  <div className="pt-6 border-t border-gray-50 flex justify-end">
-                    <span className="text-xs font-bold text-gray-400 group-hover:text-[#ED1C24] flex items-center gap-1 transition-colors cursor-pointer">
-                      อ่านต่อ
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14 5l7 7m0 0l-7 7m7-7H3"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))}
           </div>
         </div>
       </section>
@@ -1391,32 +1311,6 @@ export default function Home() {
                 มุ่งมั่นให้บริการด้วยมาตรฐานสากล
                 เพื่อขับเคลื่อนเศรษฐกิจไทยและคุณภาพชีวิตที่ดีของสังคม
               </p>
-              <div className="flex gap-3">
-                <a
-                  href="#"
-                  className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-[#ED1C24] hover:text-white transition-all hover:scale-110 shadow-sm"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-                  </svg>
-                </a>
-                <a
-                  href="#"
-                  className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-[#ED1C24] hover:text-white transition-all hover:scale-110 shadow-sm"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
-                  </svg>
-                </a>
-              </div>
             </div>
             <div className="md:col-span-3">
               <h4 className="font-bold text-gray-900 text-lg mb-6">
@@ -1439,24 +1333,6 @@ export default function Home() {
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-red-500 transition-colors"></span>{" "}
                     ระบบติดตามพัสดุ
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-[#ED1C24] transition-colors flex items-center gap-2 group"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-red-500 transition-colors"></span>{" "}
-                    ค้นหาไปรษณีย์ไทย
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-[#ED1C24] transition-colors flex items-center gap-2 group"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-red-500 transition-colors"></span>{" "}
-                    Intranet ส่วนกลาง
                   </a>
                 </li>
               </ul>
@@ -1700,15 +1576,6 @@ export default function Home() {
                       )}
                     </button>
                   </form>
-
-                  <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-                    <p className="text-xs text-gray-400">
-                      หากพบปัญหาการใช้งาน กรุณาติดต่อ <br />
-                      <span className="font-bold text-gray-600">
-                        ส่วนเทคโนโลยีสารสนเทศ (IT Support)
-                      </span>
-                    </p>
-                  </div>
                 </div>
 
                 <div className="hidden md:flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden p-12 text-center">
@@ -1746,7 +1613,7 @@ export default function Home() {
           )}
 
           {/* DOCUMENT MODAL */}
-          {!isLoginOpen && (
+          {!isLoginOpen && selectedDocument && (
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
               <div className="absolute top-4 right-4 z-20">
                 <button
@@ -1772,215 +1639,230 @@ export default function Home() {
                 </button>
               </div>
 
-              {selectedDocument && (
-                <>
-                  <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-6 pt-8 pb-4">
-                    <span className="inline-block px-2 py-1 bg-red-50 text-[#ED1C24] text-[10px] font-bold rounded uppercase mb-2">
-                      {selectedDocument.type}
+              <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-6 pt-8 pb-4">
+                <span className="inline-block px-2 py-1 bg-red-50 text-[#ED1C24] text-[10px] font-bold rounded uppercase mb-2">
+                  {selectedDocument.type}
+                </span>
+                <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                  {selectedDocument.title}
+                </h3>
+                <p className="text-gray-500 text-sm mt-1">
+                  เลขที่หนังสือ:{" "}
+                  <span className="font-semibold text-gray-700">
+                    {selectedDocument.bookNo}
+                  </span>
+                </p>
+              </div>
+              <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                  <div>
+                    <span className="block text-gray-400 text-xs uppercase mb-1">
+                      ลงวันที่
                     </span>
-                    <h3 className="text-xl font-bold text-gray-900 leading-snug">
-                      {selectedDocument.title}
-                    </h3>
-                    <p className="text-gray-500 text-sm mt-1">
-                      เลขที่หนังสือ:{" "}
-                      <span className="font-semibold text-gray-700">
-                        {selectedDocument.bookNo}
-                      </span>
-                    </p>
+                    <span className="font-semibold text-gray-800">
+                      {selectedDocument.date}
+                    </span>
                   </div>
-                  <div className="p-6 overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                      <div>
-                        <span className="block text-gray-400 text-xs uppercase mb-1">
-                          ลงวันที่
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {selectedDocument.date}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-gray-400 text-xs uppercase mb-1">
-                          ส่วนงาน
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {selectedDocument.dept}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-gray-400 text-xs uppercase mb-1">
-                          เบอร์โทรศัพท์
-                        </span>
-                        <span className="font-semibold text-[#ED1C24]">
-                          {selectedDocument.phone}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <h4 className="text-sm font-bold text-gray-900 mb-2 border-l-4 border-[#ED1C24] pl-3">
-                        รายละเอียด
-                      </h4>
-                      <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
-                        {selectedDocument.details}
-                      </p>
-                    </div>
-
-                    {selectedDocument.links &&
-                      selectedDocument.links.length > 0 && (
-                        <div className="mb-6">
-                          <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                            <svg
-                              className="w-4 h-4 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
-                              />
-                            </svg>
-                            ลิงก์แนบ
-                          </h4>
-                          <ul className="space-y-2">
-                            {selectedDocument.links.map(
-                              (link: any, i: number) => (
-                                <li key={i}>
-                                  <a
-                                    href={link.url}
-                                    target="_blank"
-                                    className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                  >
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                    {link.name}
-                                  </a>
-                                </li>
-                              )
-                            )}
-                          </ul>
-                        </div>
-                      )}
-
-                    {selectedDocument.files &&
-                      selectedDocument.files.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                            <svg
-                              className="w-4 h-4 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                              />
-                            </svg>
-                            ไฟล์เอกสาร
-                          </h4>
-                          <div className="space-y-2">
-                            {selectedDocument.files.map(
-                              (file: any, i: number) => (
-                                <a
-                                  key={i}
-                                  href={file.url}
-                                  target="_blank"
-                                  className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group cursor-pointer block"
-                                >
-                                  <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
-                                      <svg
-                                        className="w-4 h-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                        />
-                                      </svg>
-                                    </div>
-                                    <div className="flex flex-col truncate">
-                                      <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
-                                        {file.name}
-                                      </span>
-                                      <span className="text-[10px] text-gray-400">
-                                        {file.size}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <svg
-                                    className="w-5 h-5 text-gray-300 group-hover:text-[#ED1C24]"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                    />
-                                  </svg>
-                                </a>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  <div>
+                    <span className="block text-gray-400 text-xs uppercase mb-1">
+                      ส่วนงาน
+                    </span>
+                    <span className="font-semibold text-gray-800">
+                      {selectedDocument.dept}
+                    </span>
                   </div>
-                </>
-              )}
-
-              {isContactOpen && (
-                <div className="p-6">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg
-                        className="w-8 h-8"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold mb-4 text-gray-900">
-                      เบอร์โทรศัพท์ติดต่อ
-                    </h3>
-                    <div className="space-y-3 text-left">
-                      {contactList.map((c, i) => (
-                        <div
-                          key={i}
-                          className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors group"
-                        >
-                          <span className="font-bold text-gray-700 text-sm group-hover:text-red-700">
-                            {c.name}
-                          </span>
-                          <a
-                            href={`tel:${c.phone}`}
-                            className="text-[#ED1C24] font-bold text-sm bg-white px-3 py-1 rounded-lg shadow-sm"
-                          >
-                            {c.phone}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
+                  <div>
+                    <span className="block text-gray-400 text-xs uppercase mb-1">
+                      เบอร์โทรศัพท์
+                    </span>
+                    <span className="font-semibold text-[#ED1C24]">
+                      {selectedDocument.phone}
+                    </span>
                   </div>
                 </div>
-              )}
+
+                <div className="mb-6">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 border-l-4 border-[#ED1C24] pl-3">
+                    รายละเอียด
+                  </h4>
+                  <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
+                    {selectedDocument.details}
+                  </p>
+                </div>
+
+                {selectedDocument.links &&
+                  selectedDocument.links.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
+                          />
+                        </svg>
+                        ลิงก์แนบ
+                      </h4>
+                      <ul className="space-y-2">
+                        {selectedDocument.links.map((link: any, i: number) => (
+                          <li key={i}>
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                              {link.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {selectedDocument.files &&
+                  selectedDocument.files.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                          />
+                        </svg>
+                        ไฟล์เอกสาร
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedDocument.files.map((file: any, i: number) => (
+                          <a
+                            key={i}
+                            href={file.url}
+                            target="_blank"
+                            className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group cursor-pointer block"
+                          >
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="flex flex-col truncate">
+                                <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
+                                  {file.name}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  {file.size}
+                                </span>
+                              </div>
+                            </div>
+                            <svg
+                              className="w-5 h-5 text-gray-300 group-hover:text-[#ED1C24]"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+
+          {/* CONTACT MODAL */}
+          {!isLoginOpen && !selectedDocument && isContactOpen && (
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={() => setIsContactOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold mb-4 text-gray-900">
+                    เบอร์โทรศัพท์ติดต่อ
+                  </h3>
+                  <div className="space-y-3 text-left">
+                    {contactList.map((c, i) => (
+                      <div
+                        key={i}
+                        className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-red-50 transition-colors group"
+                      >
+                        <span className="font-bold text-gray-700 text-sm group-hover:text-red-700">
+                          {c.name}
+                        </span>
+                        <a
+                          href={`tel:${c.phone}`}
+                          className="text-[#ED1C24] font-bold text-sm bg-white px-3 py-1 rounded-lg shadow-sm"
+                        >
+                          {c.phone}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
