@@ -4,6 +4,38 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// --- Icons Components ---
+const FileIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
+  </svg>
+);
+const CloseIcon = () => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M6 18L18 6M6 6l12 12"
+    />
+  </svg>
+);
+
 export default function Home() {
   const router = useRouter();
 
@@ -15,47 +47,51 @@ export default function Home() {
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
-  // --- State Dashboard ---
+  // --- Data States (From Supabase) ---
+  const [circularLetters, setCircularLetters] = useState<any[]>([]); // เอกสาร
+  const [newsList, setNewsList] = useState<any[]>([]); // ข่าวสาร
+
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [selectedNews, setSelectedNews] = useState<any>(null); // ✅ สำหรับ Modal ข่าว
+
+  // --- Dashboard State ---
   const [activeDashboard, setActiveDashboard] = useState<"income" | "fuze">(
     "income"
   );
 
-  // --- State News (Tabs & Carousel) ---
-  const [activeNewsTab, setActiveNewsTab] = useState<"general" | "pr">(
-    "general"
-  );
+  // --- News State ---
+  const [activeNewsTab, setActiveNewsTab] = useState<
+    "ทั่วไป" | "ประชาสัมพันธ์"
+  >("ทั่วไป");
   const newsContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- State สำหรับข้อมูลเอกสาร ---
-  const [circularLetters, setCircularLetters] = useState<any[]>([]);
+  // --- Loading States ---
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+  const [isLoadingNews, setIsLoadingNews] = useState(true);
 
-  // --- State สำหรับ Filter & Pagination ---
+  // --- Filter & Pagination (Documents) ---
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // --- State Login & Session ---
+  // --- Login State ---
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingLogin, setIsLoadingLogin] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [session, setSession] = useState<any>(null);
 
-  // --- Dashboard Data ---
   const dashboardLinks = {
     income:
       "https://lookerstudio.google.com/embed/reporting/a62bac56-8834-440c-a05f-b3e71adcd5da/page/ZZcEF",
     fuze: "https://lookerstudio.google.com/embed/reporting/8075cc55-994d-43ec-b8cf-629553056285/page/PF2SF",
   };
 
-  // --- Departments List ---
   const departments = ["รป.", "ทข.", "ตล.", "บค.", "อบ.", "กง.", "ทพ."];
 
-  // --- Helper: Format Thai Date ---
+  // --- Helpers ---
   const formatThaiDate = (dateString: string) => {
     if (!dateString) return "-";
     const [y, m, d] = dateString.split("-").map(Number);
@@ -73,136 +109,105 @@ export default function Home() {
       "พ.ย.",
       "ธ.ค.",
     ];
-    const yearTh = (y + 543).toString().slice(-2);
-    const dayTh = d < 10 ? `0${d}` : d;
-    return `${dayTh} ${months[m - 1]} ${yearTh}`;
+    return `${d} ${months[m - 1]} ${(y + 543).toString().slice(-2)}`;
   };
 
-  // --- Helper: Get Color by Type ---
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "ประกาศ":
-        return "bg-red-500";
-      case "ขอความร่วมมือ":
-        return "bg-blue-500";
-      case "คำสั่ง":
-        return "bg-amber-500";
-      case "แจ้งเวียน":
-        return "bg-green-500";
-      default:
-        return "bg-gray-400";
-    }
-  };
-
-  // --- Helper: Get Department Badge Style ---
   const getDeptBadgeStyle = (dept: string) => {
     const styles: Record<string, string> = {
-      "รป.": "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
-      "ทข.":
-        "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100",
-      "ตล.":
-        "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100",
-      "บค.": "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100",
-      "อบ.": "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
-      "กง.":
-        "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
-      "ทพ.": "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+      "รป.": "bg-blue-50 text-blue-700 border-blue-200",
+      "ทข.": "bg-indigo-50 text-indigo-700 border-indigo-200",
+      "ตล.": "bg-purple-50 text-purple-700 border-purple-200",
+      "บค.": "bg-teal-50 text-teal-700 border-teal-200",
+      "อบ.": "bg-rose-50 text-rose-700 border-rose-200",
+      "กง.": "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "ทพ.": "bg-amber-50 text-amber-700 border-amber-200",
     };
-    return (
-      styles[dept] ||
-      "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-    );
+    return styles[dept] || "bg-gray-50 text-gray-700 border-gray-200";
   };
 
-  // --- Helper: Get News Cover Image (SVG) ---
-  const getNewsCover = (id: number) => {
-    const colors = [
-      { bg: "#F0F9FF", main: "#0EA5E9" },
-      { bg: "#FFFBEB", main: "#D97706" },
-      { bg: "#FEF2F2", main: "#EF4444" },
-      { bg: "#F5F3FF", main: "#8B5CF6" },
-    ];
-    const c = colors[id % colors.length];
-
-    return (
-      <svg
-        className="w-full h-full"
-        viewBox="0 0 400 250"
-        fill="none"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <rect width="400" height="250" fill={c.bg} />
-        <circle cx="350" cy="50" r="100" fill={c.main} fillOpacity="0.1" />
-        <circle cx="50" cy="200" r="80" fill={c.main} fillOpacity="0.1" />
-        <path
-          d="M150 100 L250 150 M150 150 L250 100"
-          stroke={c.main}
-          strokeWidth="3"
-          opacity="0.2"
-        />
-      </svg>
-    );
-  };
-
-  // --- Check Session on Mount ---
+  // --- Check Session ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => setSession(session));
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
+    } = supabase.auth.onAuthStateChange((_event, session) =>
+      setSession(session)
+    );
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- Fetch Documents ---
+  // --- Fetch Data ---
   useEffect(() => {
+    // 1. Fetch Documents
     const fetchDocuments = async () => {
       setIsLoadingDocs(true);
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("documents")
         .select("*")
         .eq("status", "published")
         .order("id", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching documents:", error);
-      } else if (data) {
-        const formattedData = data.map((doc, index) => ({
-          id: doc.id,
-          no: index + 1,
-          title: doc.title,
-          date: formatThaiDate(doc.date),
-          dept: doc.dept,
-          bookNo: doc.book_no,
-          type: doc.type,
-          statusColor: getTypeColor(doc.type),
-          phone: doc.phone || "-",
-          details: doc.details,
-          links: doc.links || [],
-          files: doc.files || [],
-        }));
-        setCircularLetters(formattedData);
+      if (data) {
+        setCircularLetters(
+          data.map((doc, i) => ({
+            ...doc,
+            no: i + 1,
+            dateFormatted: formatThaiDate(doc.date),
+          }))
+        );
       }
       setIsLoadingDocs(false);
     };
 
+    // 2. Fetch News (✅ เชื่อมต่อ DB)
+    const fetchNews = async () => {
+      setIsLoadingNews(true);
+      const { data } = await supabase
+        .from("news")
+        .select("*")
+        .eq("status", "published")
+        .order("date", { ascending: false });
+
+      if (data) {
+        setNewsList(
+          data.map((item) => ({
+            ...item,
+            dateFormatted: formatThaiDate(item.date),
+            category:
+              item.type === "ข่าวประชาสัมพันธ์" ? "ประชาสัมพันธ์" : "ทั่วไป",
+            d: item.date.split("-")[2],
+            m: [
+              "ม.ค.",
+              "ก.พ.",
+              "มี.ค.",
+              "เม.ย.",
+              "พ.ค.",
+              "มิ.ย.",
+              "ก.ค.",
+              "ส.ค.",
+              "ก.ย.",
+              "ต.ค.",
+              "พ.ย.",
+              "ธ.ค.",
+            ][parseInt(item.date.split("-")[1]) - 1],
+          }))
+        );
+      }
+      setIsLoadingNews(false);
+    };
+
     fetchDocuments();
+    fetchNews();
   }, []);
 
-  // --- LOGIC: Handle Site Ready (Splash Screen) ---
+  // --- Splash Screen Logic ---
   useEffect(() => {
     const safetyTimeout = setTimeout(() => {
-      if (!isSiteReady) {
-        console.warn("Forcing site load due to timeout");
-        setIsSiteReady(true);
-      }
+      if (!isSiteReady) setIsSiteReady(true);
     }, 10000);
-    if (!isLoadingDocs && iframeLoaded) {
+    if (!isLoadingDocs && !isLoadingNews && iframeLoaded) {
       const smoothDelay = setTimeout(() => {
         setIsSiteReady(true);
         clearTimeout(safetyTimeout);
@@ -210,64 +215,55 @@ export default function Home() {
       return () => clearTimeout(smoothDelay);
     }
     return () => clearTimeout(safetyTimeout);
-  }, [isLoadingDocs, iframeLoaded]);
+  }, [isLoadingDocs, isLoadingNews, iframeLoaded]);
 
   // --- Filter Logic ---
   const filteredDocs = circularLetters.filter((doc) => {
     const term = searchTerm.toLowerCase();
-    const detailsMatch = doc.details
-      ? doc.details.toLowerCase().includes(term)
-      : false;
+
+    // ✅ เพิ่มเงื่อนไขค้นหาจาก doc.details
     const matchesSearch =
-      doc.title.toLowerCase().includes(term) ||
-      doc.bookNo.toLowerCase().includes(term) ||
-      detailsMatch;
+      doc.title?.toLowerCase().includes(term) ||
+      doc.book_no?.toLowerCase().includes(term) ||
+      (doc.details && doc.details.toLowerCase().includes(term)); // <--- เพิ่มบรรทัดนี้
+
     const matchesDept = filterDept ? doc.dept === filterDept : true;
     return matchesSearch && matchesDept;
   });
 
-  // --- Pagination Logic ---
-  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
-  const paginatedDocs = filteredDocs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const filteredNews = newsList.filter((news) => {
+    if (activeNewsTab === "ทั่วไป") return news.type === "ข่าวสารทั่วไป";
+    if (activeNewsTab === "ประชาสัมพันธ์")
+      return news.type === "ข่าวประชาสัมพันธ์";
+    return false;
+  });
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterDept]);
+  const scrollNews = (direction: "left" | "right") => {
+    if (newsContainerRef.current) {
+      const amount = 350;
+      newsContainerRef.current.scrollBy({
+        left: direction === "left" ? -amount : amount,
+        behavior: "smooth",
+      });
+    }
+  };
 
-  // --- Login Logic ---
+  // --- Handlers ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setLoginError("");
-
+    setIsLoadingLogin(true);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: username,
-      password: password,
+      password,
     });
-
     if (error) {
-      console.error("Login Error:", error.message);
       setLoginError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-      setIsLoading(false);
+      setIsLoadingLogin(false);
     } else {
-      console.log("Login Success:", data);
       router.push("/dashboard");
     }
   };
 
-  // --- Scroll Listener ---
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // --- Scroll & Nav Handler ---
   const handleNavClick = (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
     item: any
@@ -277,22 +273,18 @@ export default function Home() {
       return;
     }
     e.preventDefault();
-    if (item.name === "ติดต่อเรา") {
-      setIsContactOpen(true);
-    } else if (item.name === "Admin") {
-      if (session) {
-        router.push("/dashboard");
-      } else {
-        setIsLoginOpen(true);
-      }
+    if (item.name === "ติดต่อเรา") setIsContactOpen(true);
+    else if (item.name === "Admin") {
+      session ? router.push("/dashboard") : setIsLoginOpen(true);
     } else if (item.href.startsWith("#")) {
       const targetId = item.href.substring(1);
       const elem = document.getElementById(targetId);
       if (elem) {
-        const headerOffset = 80;
-        const elementPosition = elem.getBoundingClientRect().top;
-        const offsetPosition =
-          elementPosition + window.pageYOffset - headerOffset;
+        const offset = 80;
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = elem.getBoundingClientRect().top;
+        const elementPosition = elementRect - bodyRect;
+        const offsetPosition = elementPosition - offset;
         window.scrollTo({ top: offsetPosition, behavior: "smooth" });
       }
     } else {
@@ -300,38 +292,30 @@ export default function Home() {
     }
   };
 
-  // --- Carousel Scroll Logic ---
-  const scrollNews = (direction: "left" | "right") => {
-    if (newsContainerRef.current) {
-      const scrollAmount = 350;
-      const currentScroll = newsContainerRef.current.scrollLeft;
-      const targetScroll =
-        direction === "left"
-          ? currentScroll - scrollAmount
-          : currentScroll + scrollAmount;
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-      newsContainerRef.current.scrollTo({
-        left: targetScroll,
-        behavior: "smooth",
-      });
-    }
-  };
+  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+  const paginatedDocs = filteredDocs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  // --- Data ---
+  // --- Data Arrays ---
   const navItems = [
     { name: "หน้าหลัก", href: "/", active: true },
-    { name: "News Update", href: "#news", active: false },
-    { name: "Dashboard", href: "#dashboard", active: false },
+    { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false }, // ✅ ปรับชื่อไทย
+    { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false }, // ✅ ปรับชื่อไทย
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
       name: "ระบบรายงานผลประจำวัน",
       href: "#",
       active: false,
       dropdown: [
-        {
-          name: "รายงานสถานะการเงินและการเบิกเงิน/ส่งเงินธนาคาร",
-          href: "#",
-        },
+        { name: "รายงานสถานะการเงินและการเบิกเงิน/ส่งเงินธนาคาร", href: "#" },
         { name: "รายงาน Shopee", href: "#" },
       ],
     },
@@ -342,10 +326,7 @@ export default function Home() {
       dropdown: [
         { name: "รายงาน รส.5", href: "#" },
         { name: "รายงาน ป.70/ป.80", href: "#" },
-        {
-          name: "รายงานการใช้น้ำมันเชื้อเพลิงด้วยบัตรเครดิตน้ำมัน",
-          href: "#",
-        },
+        { name: "รายงานการใช้น้ำมันเชื้อเพลิงด้วยบัตรเครดิตน้ำมัน", href: "#" },
         { name: "รายงานลูกค้ารายใหญ่", href: "#" },
       ],
     },
@@ -372,84 +353,6 @@ export default function Home() {
     { name: "หทข.", phone: "098-9999999" },
     { name: "หตล.", phone: "098-9999999" },
   ];
-
-  // --- NEWS DATA (Separated) ---
-  const generalNewsItems = [
-    {
-      id: 1,
-      date: "14",
-      month: "ธ.ค.",
-      title: "ประกาศนโยบายคุณภาพ ปณท ประจำปี 2568",
-      excerpt: "ยกระดับมาตรฐานการให้บริการด้วยหัวใจ ไปรษณีย์ไทยเพื่อคนไทย...",
-      author: "ส่วนกลาง",
-    },
-    {
-      id: 2,
-      date: "10",
-      month: "ธ.ค.",
-      title: "แจ้งเปลี่ยนแปลงระเบียบการเบิกจ่ายสวัสดิการ",
-      excerpt:
-        "อัปเดตข้อมูลระเบียบการเบิกจ่ายค่ารักษาพยาบาลและสวัสดิการอื่นๆ...",
-      author: "ทรัพยากรบุคคล",
-    },
-    {
-      id: 3,
-      date: "05",
-      month: "ธ.ค.",
-      title: "โครงการไปรษณีย์ไทยใสสะอาด",
-      excerpt: "ร่วมรณรงค์ต่อต้านการทุจริตและประพฤติมิชอบในองค์กร...",
-      author: "ตรวจสอบภายใน",
-    },
-    {
-      id: 4,
-      date: "01",
-      month: "ธ.ค.",
-      title: "สรุปผลการดำเนินงานครึ่งปีหลัง",
-      excerpt: "รายงานสรุปภาพรวมความสำเร็จและเป้าหมายในอนาคต...",
-      author: "แผนกแผนงาน",
-    },
-  ];
-
-  const prNewsItems = [
-    {
-      id: 101,
-      date: "14",
-      month: "ธ.ค.",
-      title: "ประชุมสรุปผลการดำเนินงาน ประจำไตรมาสที่ 4/2567",
-      excerpt:
-        "ขอเชิญหัวหน้าส่วนงานทุกท่านเข้าร่วมประชุมเพื่อติดตามผลการปฏิบัติงานและวางแผนกลยุทธ์ประจำปี...",
-      author: "แผนกอำนวยการ",
-    },
-    {
-      id: 102,
-      date: "12",
-      month: "ธ.ค.",
-      title: "เปิดรับสมัครสอบเลื่อนระดับพนักงาน ประจำปี 2568",
-      excerpt:
-        "รายละเอียดหลักเกณฑ์และคุณสมบัติผู้มีสิทธิสอบเลื่อนระดับ สามารถดาวน์โหลดเอกสารแนบได้ที่นี่...",
-      author: "ส่วนบุคคล",
-    },
-    {
-      id: 103,
-      date: "09",
-      month: "ธ.ค.",
-      title: 'กิจกรรม "ไปรษณีย์ไทย...เพื่อสังคม" มอบทุนการศึกษา',
-      excerpt:
-        "ภาพบรรยากาศกิจกรรมมอบทุนการศึกษาและอุปกรณ์กีฬาให้กับโรงเรียนในพื้นที่ห่างไกล...",
-      author: "ประชาสัมพันธ์",
-    },
-    {
-      id: 104,
-      date: "01",
-      month: "ธ.ค.",
-      title: "Big Cleaning Day ประจำปี",
-      excerpt: "รวมพลังชาว ปข.6 ร่วมใจทำความสะอาดสำนักงาน...",
-      author: "ส่วนอาคารฯ",
-    },
-  ];
-
-  const currentNewsData =
-    activeNewsTab === "general" ? generalNewsItems : prNewsItems;
 
   return (
     <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden relative">
@@ -481,7 +384,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* GLOBAL STYLES & ANIMATIONS */}
       <style jsx global>{`
         .bg-grid-slate {
           background-size: 40px 40px;
@@ -557,9 +459,6 @@ export default function Home() {
         .delay-300 {
           animation-delay: 0.3s;
         }
-        .delay-500 {
-          animation-delay: 0.4s;
-        }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
@@ -600,7 +499,6 @@ export default function Home() {
                 </svg>
               </div>
             </div>
-
             <div className="flex flex-col">
               <span
                 className={`font-black text-xl md:text-2xl leading-none tracking-tight transition-colors duration-300 ${
@@ -622,7 +520,6 @@ export default function Home() {
               </span>
             </div>
           </Link>
-
           <div
             className={`hidden md:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
@@ -633,7 +530,7 @@ export default function Home() {
             {navItems.map((item, index) => (
               <div key={index} className="relative group">
                 <Link
-                  href={item.href}
+                  href={item.href || "#"}
                   onClick={(e) => handleNavClick(e, item)}
                   className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 whitespace-nowrap ${
                     item.active
@@ -660,7 +557,6 @@ export default function Home() {
                     </svg>
                   )}
                 </Link>
-
                 {item.dropdown && (
                   <div className="absolute top-full left-0 mt-2 w-max min-w-[220px] max-w-[320px] bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left z-50">
                     <div className="py-2">
@@ -682,8 +578,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ✅ HERO SECTION (UPDATED: High Contrast Text & No Arrow) */}
-      {/* ✅ HERO SECTION (UPDATED: Original Size, High Contrast, No Arrow) */}
+      {/* HERO SECTION */}
       <section className="relative w-full h-[550px] md:h-[750px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
@@ -691,11 +586,9 @@ export default function Home() {
             alt="Regional Postal Bureau Region 6 Office"
             className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
           />
-          {/* ปรับ Overlay ให้เข้มขึ้นนิดหน่อยเพื่อให้ text สีขาวอ่านง่าย แม้ขนาดเท่าเดิม */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
         </div>
-
         <div className="container relative z-20 max-w-5xl mx-auto px-6 flex flex-col items-center justify-center text-center space-y-8 mt-16">
           <div className="animate-fade-in-up delay-100 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl cursor-default transition-transform hover:scale-105 hover:bg-white/20">
             <span className="relative flex h-3 w-3">
@@ -706,9 +599,7 @@ export default function Home() {
               Thailand Post Sector 6
             </span>
           </div>
-
           <div className="space-y-2 animate-fade-in-up delay-200">
-            {/* ปรับขนาดกลับมาเท่าเดิม (5xl - 8xl) แต่ใส่ textShadow ให้เด้งขึ้น */}
             <h1
               className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight"
               style={{
@@ -716,78 +607,81 @@ export default function Home() {
                   "0 4px 20px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.6)",
               }}
             >
-              ขับเคลื่อนอนาคต <br />
-              Information <br />
-              Logistics
+              ขับเคลื่อนอนาคต <br /> Information <br /> Logistics
             </h1>
           </div>
-
           <p className="animate-fade-in-up delay-300 text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-lg opacity-90">
             ยกระดับการบริหารงานไปรษณีย์ด้วยนวัตกรรมดิจิทัล{" "}
             <br className="hidden md:block" />
             เชื่อมโยงข้อมูล ผสานเครือข่าย เพื่อบริการที่เหนือกว่า
           </p>
-
-          {/* ลบลูกศรออกเรียบร้อย */}
         </div>
-
-        {/* ✨ EFFECT: Gradient Fade to White */}
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white via-white/60 to-transparent z-10 pointer-events-none"></div>
       </section>
-      {/* ✅ SECTION: NEWS UPDATE (Above Dashboard) */}
+
+      {/* ✅ SECTION: NEWS UPDATE (THAI HEADER) */}
       <section
         id="news"
         className="py-20 px-4 md:px-6 bg-white border-b border-gray-100 relative overflow-hidden"
       >
         <div className="absolute top-0 left-0 w-64 h-64 bg-red-50 rounded-full blur-3xl opacity-60 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-
         <div className="max-w-7xl mx-auto relative z-10">
-          {/* Header & Tabs */}
+          {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
             <div>
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-[#ED1C24] text-[10px] font-bold tracking-widest uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
                 Updates
               </span>
+              {/* ✅ เปลี่ยนหัวข้อเป็นภาษาไทย */}
               <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
-                News Update
+                ข่าวประชาสัมพันธ์
               </h2>
               <p className="text-gray-500 mt-2 font-medium">
                 ติดตามข่าวสารและความเคลื่อนไหวล่าสุด
               </p>
             </div>
 
-            {/* Tabs Selector */}
+            {/* Tab Switcher */}
             <div className="bg-gray-100 p-1.5 rounded-xl flex items-center gap-1 self-start md:self-end">
               <button
-                onClick={() => setActiveNewsTab("general")}
+                onClick={() => setActiveNewsTab("ทั่วไป")}
                 className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
-                  activeNewsTab === "general"
+                  activeNewsTab === "ทั่วไป"
                     ? "bg-white text-[#ED1C24] shadow-md"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                ข่าวประชาสัมพันธ์ทั่วไป ปณท
+                ข่าวสารทั่วไป
               </button>
               <button
-                onClick={() => setActiveNewsTab("pr")}
+                onClick={() => setActiveNewsTab("ประชาสัมพันธ์")}
                 className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
-                  activeNewsTab === "pr"
+                  activeNewsTab === "ประชาสัมพันธ์"
                     ? "bg-white text-[#ED1C24] shadow-md"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                ประชาสัมพันธ์
+                ข่าวประชาสัมพันธ์
               </button>
             </div>
           </div>
 
           {/* Carousel Container */}
           <div className="relative group">
-            {/* Scroll Buttons */}
+            {/* Left Button */}
             <button
-              onClick={() => scrollNews("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+              onClick={() => {
+                if (newsContainerRef.current) {
+                  const scrollAmount =
+                    activeNewsTab === "ประชาสัมพันธ์" ? 400 : 344;
+                  newsContainerRef.current.scrollBy({
+                    left: -scrollAmount,
+                    behavior: "smooth",
+                  });
+                }
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-30 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-600 hover:text-[#ED1C24] hover:scale-110 hover:bg-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0"
             >
               <svg
                 className="w-6 h-6"
@@ -803,9 +697,20 @@ export default function Home() {
                 />
               </svg>
             </button>
+
+            {/* Right Button */}
             <button
-              onClick={() => scrollNews("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-4 z-20 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#ED1C24] hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+              onClick={() => {
+                if (newsContainerRef.current) {
+                  const scrollAmount =
+                    activeNewsTab === "ประชาสัมพันธ์" ? 400 : 344;
+                  newsContainerRef.current.scrollBy({
+                    left: scrollAmount,
+                    behavior: "smooth",
+                  });
+                }
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-30 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-600 hover:text-[#ED1C24] hover:scale-110 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
             >
               <svg
                 className="w-6 h-6"
@@ -822,65 +727,135 @@ export default function Home() {
               </svg>
             </button>
 
-            {/* Slider Track */}
+            {/* Gradient Fade */}
+            <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white via-white/50 to-transparent z-20 pointer-events-none md:block hidden" />
+
+            {/* Scrollable Area */}
             <div
               ref={newsContainerRef}
-              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide py-4 px-2"
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide py-8 px-2 items-center cursor-grab active:cursor-grabbing"
+              style={{ scrollBehavior: "smooth" }}
             >
-              {currentNewsData.map((news, idx) => (
-                <article
-                  key={idx}
-                  className="min-w-[85%] md:min-w-[350px] lg:min-w-[380px] snap-center bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl hover:border-red-100 transition-all duration-300 flex flex-col h-full hover:-translate-y-2 select-none"
-                >
-                  <div className="h-48 bg-gray-50 relative overflow-hidden">
-                    {getNewsCover(news.id)}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl text-center shadow-md border border-white/50">
-                      <span className="block text-lg font-black text-[#ED1C24] leading-none">
-                        {news.date}
-                      </span>
-                      <span className="block text-[10px] font-bold text-gray-800 uppercase tracking-wide">
-                        {news.month}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-6 flex flex-col flex-1">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                      {news.author}
-                    </span>
-                    <h4 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-snug group-hover:text-[#ED1C24] transition-colors">
-                      {news.title}
-                    </h4>
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-4 leading-relaxed flex-1">
-                      {news.excerpt}
-                    </p>
-                    <div className="pt-4 border-t border-gray-50 flex justify-end">
-                      <span className="text-xs font-bold text-[#ED1C24] flex items-center gap-1 cursor-pointer">
-                        อ่านต่อ
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M14 5l7 7m0 0l-7 7m7-7H3"
+              {filteredNews.length === 0 ? (
+                <div className="w-full py-10 text-center text-gray-400 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                  ไม่พบข่าวสารในหมวดหมู่นี้
+                </div>
+              ) : (
+                filteredNews.map((news, idx) => (
+                  <article
+                    key={idx}
+                    className={`snap-center bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl hover:border-red-100 transition-all duration-300 flex flex-col select-none flex-shrink-0 relative
+                      ${
+                        activeNewsTab === "ประชาสัมพันธ์"
+                          ? "w-[360px] h-[540px] md:w-[400px] md:h-[600px]"
+                          : "w-[320px] h-[480px] md:w-[360px] md:h-[500px]"
+                      }
+                    `}
+                    onClick={() => setSelectedNews(news)}
+                  >
+                    {/* Image Section */}
+                    <div
+                      className={`w-full relative overflow-hidden bg-gray-200 
+                      ${
+                        activeNewsTab === "ประชาสัมพันธ์" ? "h-full" : "h-[45%]"
+                      }`}
+                    >
+                      {news.cover_image?.url ? (
+                        <>
+                          <div className="absolute inset-0 w-full h-full overflow-hidden">
+                            <img
+                              src={news.cover_image.url}
+                              alt="blur-bg"
+                              className="w-full h-full object-cover blur-lg scale-125 opacity-100 brightness-75"
+                            />
+                          </div>
+                          <img
+                            src={news.cover_image.url}
+                            alt="cover"
+                            className="relative z-10 h-full w-full object-contain shadow-md transition-transform duration-700 ease-out group-hover:scale-105"
                           />
-                        </svg>
-                      </span>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 z-10">
+                          <span className="text-sm font-medium">
+                            ไม่มีรูปภาพ
+                          </span>
+                        </div>
+                      )}
+
+                      {activeNewsTab === "ทั่วไป" && (
+                        <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl text-center shadow-lg border border-white/50 z-20">
+                          <span className="block text-lg font-black text-[#ED1C24] leading-none">
+                            {news.d}
+                          </span>
+                          <span className="block text-[10px] font-bold text-gray-800 uppercase tracking-wide">
+                            {news.m}
+                          </span>
+                        </div>
+                      )}
+
+                      {activeNewsTab === "ประชาสัมพันธ์" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-all z-20">
+                          <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 group-hover:scale-100">
+                            <svg
+                              className="w-6 h-6 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </article>
-              ))}
+
+                    {/* Content Section */}
+                    {activeNewsTab !== "ประชาสัมพันธ์" && (
+                      <div className="h-[55%] flex flex-col p-6 bg-white relative z-20">
+                        <div className="flex-1 overflow-hidden">
+                          <h4 className="text-lg font-bold text-gray-900 mb-3 line-clamp-3 leading-snug group-hover:text-[#ED1C24] transition-colors h-[5rem] overflow-hidden">
+                            {news.title}
+                          </h4>
+                          <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
+                            {news.details}
+                          </p>
+                        </div>
+                        <div className="pt-3 mt-auto border-t border-gray-50 flex justify-end">
+                          <span className="text-xs font-bold text-[#ED1C24] flex items-center gap-1 cursor-pointer hover:underline bg-red-50 px-3 py-1.5 rounded-lg transition-colors group-hover:bg-[#ED1C24] group-hover:text-white">
+                            อ่านเพิ่มเติม
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M14 5l7 7m0 0l-7 7m7-7H3"
+                              />
+                            </svg>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ))
+              )}
+              <div className="w-2 flex-shrink-0" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD */}
+      {/* ✅ SECTION: DASHBOARD (THAI HEADER & RED THEME) */}
       <section
         id="dashboard"
         className="py-20 px-4 md:px-6 bg-gradient-to-b from-gray-50 to-white border-t border-gray-200"
@@ -888,12 +863,14 @@ export default function Home() {
         <div className="max-w-7xl mx-auto w-full">
           <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase mb-2">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+              {/* ✅ ปรับ Badge เป็นสีแดงทั้งหมด */}
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-[#ED1C24] text-xs font-bold tracking-widest uppercase mb-2">
+                <span className="w-2 h-2 rounded-full bg-[#ED1C24] animate-pulse"></span>
                 Performance
               </span>
+              {/* ✅ เปลี่ยนหัวข้อเป็นภาษาไทยสื่อความหมาย */}
               <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
-                Dashboard สรุปผลการดำเนินงาน
+                สรุปผลการดำเนินงาน
               </h2>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 md:self-end">
@@ -942,7 +919,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative w-full h-[500px] md:h-[650px] transition-all duration-300">
             {!iframeLoaded && (
               <div className="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10 p-4 text-center">
@@ -955,14 +931,10 @@ export default function Home() {
             <iframe
               key={activeDashboard}
               src={dashboardLinks[activeDashboard]}
-              onLoad={() => {
-                console.log("Iframe Loaded");
-                setIframeLoaded(true);
-              }}
+              onLoad={() => setIframeLoaded(true)}
               frameBorder="0"
               style={{ border: 0 }}
               allowFullScreen
-              sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               className={`absolute top-0 left-0 w-full h-full transition-opacity duration-500 ${
                 iframeLoaded ? "opacity-100" : "opacity-0"
               }`}
@@ -971,7 +943,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECTION: CIRCULAR LETTERS */}
+      {/* ✅ SECTION: OFFICIAL DOCUMENTS (CLEAN BADGES) */}
       <section
         id="circular"
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
@@ -989,14 +961,11 @@ export default function Home() {
               ค้นหาและดาวน์โหลดเอกสารประกาศ คำสั่ง เพื่อการปฏิบัติงาน
             </p>
           </div>
-
           <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
+            {/* Search & Filter Bar */}
             <div className="p-5 md:p-6 bg-gray-50 border-b border-gray-200 flex flex-col lg:flex-row gap-4 items-center justify-between">
               <div className="flex flex-col md:flex-row gap-4 w-full lg:w-3/4">
                 <div className="relative w-full md:w-2/3">
-                  <label htmlFor="search-docs" className="sr-only">
-                    ค้นหาเอกสาร
-                  </label>
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
                     <svg
                       className="w-5 h-5"
@@ -1013,20 +982,15 @@ export default function Home() {
                     </svg>
                   </div>
                   <input
-                    id="search-docs"
                     type="text"
-                    placeholder="พิมพ์คำค้นหา..."
+                    placeholder="ค้นหาจาก หัวข้อ, เลขที่หนังสือ หรือ รายละเอียด..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-12 pr-4 py-2.5 w-full bg-white border border-gray-300 text-gray-900 rounded-xl text-sm font-medium placeholder:text-gray-500 focus:border-[#ED1C24] focus:ring-4 focus:ring-red-50 outline-none transition-all shadow-sm"
                   />
                 </div>
                 <div className="relative w-full md:w-1/3">
-                  <label htmlFor="filter-dept" className="sr-only">
-                    เลือกส่วนงาน
-                  </label>
                   <select
-                    id="filter-dept"
                     value={filterDept}
                     onChange={(e) => setFilterDept(e.target.value)}
                     className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-300 text-gray-900 rounded-xl text-sm font-medium focus:border-[#ED1C24] focus:ring-4 focus:ring-red-50 outline-none appearance-none cursor-pointer shadow-sm"
@@ -1066,6 +1030,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Table Content */}
             <div className="relative min-h-[400px] bg-transparent p-2 md:p-4 rounded-b-3xl">
               {isLoadingDocs ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 gap-4 rounded-3xl">
@@ -1152,17 +1117,21 @@ export default function Home() {
                                   </svg>
                                 </div>
                               </div>
-                              <div className="flex flex-col gap-1.5">
+                              <div className="flex flex-col gap-1.5 w-full">
                                 <h4 className="text-base font-bold text-gray-800 group-hover:text-[#ED1C24] transition-colors line-clamp-2 leading-relaxed">
                                   {doc.title}
                                 </h4>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[11px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-                                    {doc.bookNo}
-                                  </span>
-                                  {(doc.files.length > 0 ||
-                                    doc.links.length > 0) && (
-                                    <span className="flex items-center gap-1 text-[10px] text-[#ED1C24] font-bold bg-red-50 px-2 py-0.5 rounded-full">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* ✅ ตรวจสอบว่ามีเลขที่หนังสือหรือไม่ ก่อนแสดง */}
+                                  {doc.bookNo && (
+                                    <span className="text-[10px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-200 whitespace-nowrap">
+                                      {doc.bookNo}
+                                    </span>
+                                  )}
+
+                                  {/* ✅ ตรวจสอบจำนวนไฟล์ก่อนแสดง */}
+                                  {doc.files && doc.files.length > 0 && (
+                                    <span className="flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 whitespace-nowrap">
                                       <svg
                                         className="w-3 h-3"
                                         fill="none"
@@ -1176,43 +1145,78 @@ export default function Home() {
                                           d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
                                         />
                                       </svg>
-                                      มีเอกสาร
+                                      {doc.files.length} ไฟล์
+                                    </span>
+                                  )}
+
+                                  {/* ✅ ตรวจสอบจำนวนลิงก์ก่อนแสดง */}
+                                  {doc.links && doc.links.length > 0 && (
+                                    <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 whitespace-nowrap">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                                        />
+                                      </svg>
+                                      {doc.links.length} ลิงก์
                                     </span>
                                   )}
                                 </div>
                               </div>
                             </div>
                           </td>
+
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
                             <div className="flex flex-col items-center justify-center gap-2">
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
-                                  doc.type === "ประกาศ"
-                                    ? "bg-red-50 text-red-600 border-red-100"
-                                    : doc.type === "คำสั่ง"
-                                    ? "bg-amber-50 text-amber-600 border-amber-100"
-                                    : "bg-blue-50 text-blue-600 border-blue-100"
-                                }`}
-                              >
+                              {/* ✅ ตรวจสอบ doc.type ก่อนแสดง */}
+                              {doc.type && (
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${doc.statusColor}`}
-                                ></span>
-                                {doc.type}
-                              </span>
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
+                                    doc.type === "ประกาศ"
+                                      ? "bg-red-50 text-red-600 border-red-100"
+                                      : doc.type === "คำสั่ง"
+                                      ? "bg-amber-50 text-amber-600 border-amber-100"
+                                      : "bg-blue-50 text-blue-600 border-blue-100"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      doc.statusColor || "bg-gray-400"
+                                    }`}
+                                  ></span>
+                                  {doc.type}
+                                </span>
+                              )}
                               <span className="text-xs font-semibold text-gray-500">
-                                {doc.date}
+                                {doc.dateFormatted}
                               </span>
                             </div>
                           </td>
+
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
-                            <span
-                              className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
-                                doc.dept
-                              )}`}
-                            >
-                              {doc.dept}
-                            </span>
+                            {/* ✅ ตรวจสอบ doc.dept ก่อนแสดง */}
+                            {doc.dept ? (
+                              <span
+                                className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
+                                  doc.dept
+                                )}`}
+                              >
+                                {doc.dept}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 text-xs font-medium">
+                                -
+                              </span>
+                            )}
                           </td>
+
                           <td className="bg-white p-4 align-middle text-center rounded-r-2xl shadow-sm group-hover:shadow-lg transition-all">
                             {doc.files && doc.files.length > 0 ? (
                               <a
@@ -1222,7 +1226,7 @@ export default function Home() {
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-10 h-10 rounded-xl bg-red-50 text-[#ED1C24] hover:bg-[#ED1C24] hover:text-white transition-all duration-300 flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 border border-red-100 hover:border-red-500"
-                                title={`ดาวน์โหลด: ${doc.files[0].name}`}
+                                title={`ดาวน์โหลดด่วน: ${doc.files[0].name}`}
                               >
                                 <svg
                                   className="w-5 h-5"
@@ -1239,7 +1243,9 @@ export default function Home() {
                                 </svg>
                               </a>
                             ) : (
-                              <span className="text-gray-300 font-bold">-</span>
+                              <span className="text-gray-300 font-bold select-none">
+                                -
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1250,6 +1256,7 @@ export default function Home() {
               )}
             </div>
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="border-t border-gray-200 bg-gray-50 p-4 flex justify-between items-center">
                 <button
@@ -1415,175 +1422,122 @@ export default function Home() {
       </footer>
 
       {/* MODALS */}
-      {(isContactOpen || selectedDocument || isLoginOpen) && (
+      {(isContactOpen || selectedDocument || isLoginOpen || selectedNews) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => {
               setIsContactOpen(false);
               setSelectedDocument(null);
               setIsLoginOpen(false);
+              setSelectedNews(null);
             }}
           ></div>
 
           {/* LOGIN OVERLAY */}
           {isLoginOpen && (
-            <div className="fixed inset-0 z-[110] bg-[#FAFAFA] flex items-center justify-center animate-fade-in-up">
-              <div className="absolute inset-0 bg-grid-slate [mask-image:linear-gradient(to_bottom,white,transparent)] pointer-events-none"></div>
-
+            <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative z-10 animate-fade-in-up">
               <button
                 onClick={() => setIsLoginOpen(false)}
-                className="absolute top-6 right-6 p-2 rounded-full bg-white border border-gray-200 hover:bg-red-50 hover:text-red-500 transition-colors z-50 shadow-sm"
+                className="absolute top-4 right-4 text-gray-300 hover:text-red-500"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <CloseIcon />
               </button>
-
-              <div className="w-full max-w-4xl grid md:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative z-20 m-4">
-                <div className="p-8 md:p-12 flex flex-col justify-center">
-                  <div className="mb-8">
-                    <div className="w-12 h-12 bg-[#ED1C24] text-white flex items-center justify-center rounded-xl shadow-lg shadow-red-200 mb-4">
-                      <svg
-                        className="w-7 h-7"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-3xl font-black text-gray-900 mb-2">
-                      เข้าสู่ระบบ
-                    </h2>
-                    <p className="text-gray-500 text-sm">
-                      ระบบบริหารจัดการภายใน สำนักงานไปรษณีย์เขต 6
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    {loginError && (
-                      <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs font-bold rounded-xl flex items-center gap-2 animate-pulse">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {loginError}
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                        รหัสพนักงาน / Username
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-[#ED1C24] focus:ring-2 focus:ring-red-100 outline-none transition-all text-sm font-medium text-gray-900"
-                        placeholder="admin@post6.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                        รหัสผ่าน / Password
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-[#ED1C24] focus:ring-2 focus:ring-red-100 outline-none transition-all text-sm font-medium text-gray-900"
-                        placeholder="•••••••• (1234)"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="rounded text-[#ED1C24] focus:ring-red-500"
-                        />
-                        <span className="text-gray-500">จำการเข้าสู่ระบบ</span>
-                      </label>
-                      <a
-                        href="#"
-                        className="text-[#ED1C24] font-bold hover:underline"
-                      >
-                        ลืมรหัสผ่าน?
-                      </a>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className={`w-full py-3 bg-[#ED1C24] text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2
-                        ${
-                          isLoading
-                            ? "opacity-70 cursor-not-allowed"
-                            : "hover:shadow-red-300 hover:-translate-y-1"
-                        }
-                      `}
-                    >
-                      {isLoading ? (
-                        <>
-                          <svg
-                            className="animate-spin h-5 w-5 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          กำลังตรวจสอบ...
-                        </>
-                      ) : (
-                        "เข้าสู่ระบบ"
-                      )}
-                    </button>
-                  </form>
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-red-600 text-white rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-red-200">
+                  <svg
+                    className="w-8 h-8"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
                 </div>
+                <h3 className="text-2xl font-black text-gray-900">
+                  เข้าสู่ระบบ
+                </h3>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {loginError && (
+                  <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg text-center">
+                    {loginError}
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">
+                    Username
+                  </label>
+                  <input
+                    type="email"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-red-500 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-red-500 outline-none transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoadingLogin}
+                  className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 hover:-translate-y-1 transition-all disabled:opacity-50"
+                >
+                  {isLoadingLogin ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
+                </button>
+              </form>
+            </div>
+          )}
 
-                <div className="hidden md:flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden p-12 text-center">
-                  <div className="absolute inset-0 bg-grid-slate opacity-50"></div>
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-red-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
-                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-100 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2"></div>
+          {/* ✅ DOCUMENT MODAL (FIXED: BOOK NUMBER) */}
+          {selectedDocument && (
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={() => setSelectedDocument(null)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-black/5 hover:bg-red-50 hover:text-red-500 transition-colors"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
 
-                  <div className="relative z-10">
-                    <div className="w-32 h-32 mx-auto bg-white rounded-full flex items-center justify-center shadow-xl mb-6 animate-float-card-1">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-8 pb-6 pr-14">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="inline-block px-2.5 py-1 bg-red-50 text-[#ED1C24] text-[11px] font-bold rounded uppercase tracking-wide border border-red-100">
+                    {selectedDocument.type}
+                  </span>
+                  <span className="text-gray-400 text-sm">|</span>
+                  <span className="text-gray-500 text-sm font-medium">
+                    เลขที่:{" "}
+                    <span className="text-gray-900 font-bold">
+                      {/* ✅ แก้เป็น book_no (และกันเหนียวด้วย bookNo) */}
+                      {selectedDocument.book_no ||
+                        selectedDocument.bookNo ||
+                        "-"}
+                    </span>
+                  </span>
+                </div>
+                <h3 className="text-2xl md:text-3xl font-black text-gray-900 leading-snug">
+                  {selectedDocument.title}
+                </h3>
+              </div>
+
+              {/* Body */}
+              <div className="p-8 overflow-y-auto custom-scrollbar bg-white">
+                {/* Meta Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm">
                       <svg
-                        className="w-16 h-16 text-[#ED1C24]"
+                        className="w-5 h-5"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1591,192 +1545,119 @@ export default function Home() {
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-black text-gray-900 mb-2">
-                      Secure Access
-                    </h3>
-                    <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">
-                      ระบบรักษาความปลอดภัยข้อมูลสารสนเทศ <br />
-                      มาตรฐานสากล เพื่อความปลอดภัยสูงสุด
-                    </p>
+                    <div>
+                      <span className="block text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                        ลงวันที่
+                      </span>
+                      <span className="font-bold text-gray-800 text-sm">
+                        {selectedDocument.dateFormatted}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* DOCUMENT MODAL */}
-          {!isLoginOpen && selectedDocument && (
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="absolute top-4 right-4 z-20">
-                <button
-                  onClick={() => {
-                    setIsContactOpen(false);
-                    setSelectedDocument(null);
-                  }}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5 text-gray-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <span className="block text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                        ส่วนงานเจ้าของเรื่อง
+                      </span>
+                      <span className="font-bold text-gray-800 text-sm">
+                        {selectedDocument.dept}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 p-6 pt-8 pb-4">
-                <span className="inline-block px-2 py-1 bg-red-50 text-[#ED1C24] text-[10px] font-bold rounded uppercase mb-2">
-                  {selectedDocument.type}
-                </span>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug">
-                  {selectedDocument.title}
-                </h3>
-                <p className="text-gray-500 text-sm mt-1">
-                  เลขที่หนังสือ:{" "}
-                  <span className="font-semibold text-gray-700">
-                    {selectedDocument.bookNo}
-                  </span>
-                </p>
-              </div>
-              <div className="p-6 overflow-y-auto custom-scrollbar">
-                <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                  <div>
-                    <span className="block text-gray-400 text-xs uppercase mb-1">
-                      ลงวันที่
-                    </span>
-                    <span className="font-semibold text-gray-800">
-                      {selectedDocument.date}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-gray-400 text-xs uppercase mb-1">
-                      ส่วนงาน
-                    </span>
-                    <span className="font-semibold text-gray-800">
-                      {selectedDocument.dept}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-gray-400 text-xs uppercase mb-1">
-                      เบอร์โทรศัพท์
-                    </span>
-                    <span className="font-semibold text-[#ED1C24]">
-                      {selectedDocument.phone}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 border border-gray-100 shadow-sm">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <span className="block text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                        เบอร์โทรศัพท์
+                      </span>
+                      <span className="font-bold text-[#ED1C24] text-sm">
+                        {selectedDocument.phone || "-"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <h4 className="text-sm font-bold text-gray-900 mb-2 border-l-4 border-[#ED1C24] pl-3">
+                {/* Details */}
+                <div className="mb-8">
+                  <h4 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#ED1C24] rounded-full"></span>
                     รายละเอียด
                   </h4>
-                  <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl">
-                    {selectedDocument.details}
-                  </p>
+                  <div className="text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap">
+                    {selectedDocument.details || "ไม่มีรายละเอียดเพิ่มเติม"}
+                  </div>
                 </div>
 
-                {selectedDocument.links &&
-                  selectedDocument.links.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.172-1.172a4 4 0 105.656-5.656l-1.172 1.172a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.172 1.172a4 4 0 105.656 5.656l1.172-1.172z"
-                          />
-                        </svg>
-                        ลิงก์แนบ
-                      </h4>
-                      <ul className="space-y-2">
-                        {selectedDocument.links.map((link: any, i: number) => (
-                          <li key={i}>
-                            <a
-                              href={link.url}
-                              target="_blank"
-                              className="flex items-center gap-2 text-sm text-[#ED1C24] hover:underline font-medium p-2 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                              {link.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                {/* Attachments & Links */}
+                {(selectedDocument.files?.length > 0 ||
+                  selectedDocument.links?.length > 0) && (
+                  <div className="border-t border-gray-100 pt-6">
+                    <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                      </svg>
+                      เอกสารแนบและลิงก์ที่เกี่ยวข้อง
+                    </h4>
 
-                {selectedDocument.files &&
-                  selectedDocument.files.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Files */}
+                      {selectedDocument.files?.map((file: any, i: number) => (
+                        <a
+                          key={`file-${i}`}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 hover:shadow-md transition-all group cursor-pointer"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                          />
-                        </svg>
-                        ไฟล์เอกสาร
-                      </h4>
-                      <div className="space-y-2">
-                        {selectedDocument.files.map((file: any, i: number) => (
-                          <a
-                            key={i}
-                            href={file.url}
-                            target="_blank"
-                            className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:border-red-200 hover:shadow-sm transition-all group cursor-pointer block"
-                          >
-                            <div className="flex items-center gap-3 overflow-hidden">
-                              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-[#ED1C24] group-hover:text-white transition-colors">
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                  />
-                                </svg>
-                              </div>
-                              <div className="flex flex-col truncate">
-                                <span className="text-sm font-medium text-gray-700 truncate group-hover:text-[#ED1C24] transition-colors">
-                                  {file.name}
-                                </span>
-                                <span className="text-[10px] text-gray-400">
-                                  {file.size}
-                                </span>
-                              </div>
-                            </div>
+                          <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0 group-hover:scale-110 transition-transform">
                             <svg
-                              className="w-5 h-5 text-gray-300 group-hover:text-[#ED1C24]"
+                              className="w-5 h-5"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -1785,39 +1666,71 @@ export default function Home() {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                               />
                             </svg>
-                          </a>
-                        ))}
-                      </div>
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-sm font-bold text-gray-800 truncate group-hover:text-[#ED1C24] transition-colors">
+                              {file.name}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              ดาวน์โหลดเอกสาร
+                            </span>
+                          </div>
+                        </a>
+                      ))}
+
+                      {/* Links */}
+                      {selectedDocument.links?.map((link: any, i: number) => (
+                        <a
+                          key={`link-${i}`}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all group cursor-pointer"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors">
+                              {link.title || link.url}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              เปิดลิงก์ภายนอก
+                            </span>
+                          </div>
+                        </a>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* CONTACT MODAL */}
-          {!isLoginOpen && !selectedDocument && isContactOpen && (
+          {isContactOpen && (
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
               <div className="absolute top-4 right-4 z-20">
                 <button
                   onClick={() => setIsContactOpen(false)}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors"
                 >
-                  <svg
-                    className="w-5 h-5 text-gray-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <CloseIcon />
                 </button>
               </div>
               <div className="p-6">
@@ -1860,6 +1773,95 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* NEWS MODAL */}
+          {selectedNews && (
+            <div
+              className={`bg-white w-full ${
+                selectedNews.category === "ประชาสัมพันธ์"
+                  ? "max-w-5xl bg-transparent shadow-none"
+                  : "max-w-3xl rounded-2xl shadow-2xl"
+              } relative z-10 overflow-hidden max-h-[95vh] flex flex-col animate-fade-in-up`}
+            >
+              {/* 1. กรณีข่าวประชาสัมพันธ์ */}
+              {selectedNews.category === "ประชาสัมพันธ์" ? (
+                <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <button
+                    onClick={() => setSelectedNews(null)}
+                    className="absolute -top-10 right-0 text-white hover:text-red-400"
+                  >
+                    <CloseIcon />
+                  </button>
+                  {selectedNews.cover_image?.url && (
+                    <img
+                      src={selectedNews.cover_image.url}
+                      alt="Full PR"
+                      className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                    />
+                  )}
+                </div>
+              ) : (
+                // 2. กรณีข่าวทั่วไป
+                <>
+                  <div className="relative h-64 md:h-80 bg-gray-100">
+                    {selectedNews.cover_image?.url && (
+                      <img
+                        src={selectedNews.cover_image.url}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    <button
+                      onClick={() => setSelectedNews(null)}
+                      className="absolute top-4 right-4 w-10 h-10 bg-black/20 backdrop-blur-md border border-white/20 text-white rounded-full flex items-center justify-center hover:bg-white hover:text-red-600 transition-all"
+                    >
+                      <CloseIcon />
+                    </button>
+                    <div className="absolute bottom-6 left-6 right-6 text-white">
+                      <span className="px-2 py-1 bg-red-600 text-[10px] font-bold rounded uppercase mb-2 inline-block">
+                        {selectedNews.category}
+                      </span>
+                      <h3 className="text-2xl font-black leading-tight">
+                        {selectedNews.title}
+                      </h3>
+                      <p className="text-sm opacity-80 mt-1">
+                        {selectedNews.dateFormatted}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-8 overflow-y-auto bg-white custom-scrollbar">
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-base">
+                      {selectedNews.details}
+                    </p>
+                    {selectedNews.gallery_images?.length > 0 && (
+                      <div className="mt-8 pt-8 border-t border-gray-100">
+                        <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="w-1 h-5 bg-red-600 rounded-full"></span>{" "}
+                          รูปภาพเพิ่มเติม
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          {selectedNews.gallery_images.map(
+                            (img: any, i: number) => (
+                              <div
+                                key={i}
+                                className="rounded-xl overflow-hidden aspect-[4/3] cursor-pointer hover:opacity-90 transition-opacity border border-gray-100 shadow-sm"
+                              >
+                                <img
+                                  src={img.url}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                                  onClick={() => window.open(img.url, "_blank")}
+                                />
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
