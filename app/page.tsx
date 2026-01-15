@@ -682,7 +682,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ✅ HERO SECTION (UPDATED: Not Full Screen) */}
+      {/* ✅ HERO SECTION (UPDATED: High Contrast Text & No Arrow) */}
+      {/* ✅ HERO SECTION (UPDATED: Original Size, High Contrast, No Arrow) */}
       <section className="relative w-full h-[550px] md:h-[750px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
@@ -690,7 +691,8 @@ export default function Home() {
             alt="Regional Postal Bureau Region 6 Office"
             className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80"></div>
+          {/* ปรับ Overlay ให้เข้มขึ้นนิดหน่อยเพื่อให้ text สีขาวอ่านง่าย แม้ขนาดเท่าเดิม */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
         </div>
 
@@ -706,37 +708,32 @@ export default function Home() {
           </div>
 
           <div className="space-y-2 animate-fade-in-up delay-200">
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl">
+            {/* ปรับขนาดกลับมาเท่าเดิม (5xl - 8xl) แต่ใส่ textShadow ให้เด้งขึ้น */}
+            <h1
+              className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight"
+              style={{
+                textShadow:
+                  "0 4px 20px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.6)",
+              }}
+            >
               ขับเคลื่อนอนาคต <br />
-              <span className="text-white">Information</span> <br />
-              <span className="text-white">Logistics</span>
+              Information <br />
+              Logistics
             </h1>
           </div>
 
-          <p className="animate-fade-in-up delay-300 text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-lg">
+          <p className="animate-fade-in-up delay-300 text-lg md:text-xl text-white font-medium max-w-2xl leading-relaxed drop-shadow-lg opacity-90">
             ยกระดับการบริหารงานไปรษณีย์ด้วยนวัตกรรมดิจิทัล{" "}
             <br className="hidden md:block" />
             เชื่อมโยงข้อมูล ผสานเครือข่าย เพื่อบริการที่เหนือกว่า
           </p>
 
-          <div className="absolute bottom-10 animate-bounce delay-500 opacity-80">
-            <svg
-              className="w-10 h-10 text-white drop-shadow-md"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-              />
-            </svg>
-          </div>
+          {/* ลบลูกศรออกเรียบร้อย */}
         </div>
-      </section>
 
+        {/* ✨ EFFECT: Gradient Fade to White */}
+        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white via-white/60 to-transparent z-10 pointer-events-none"></div>
+      </section>
       {/* ✅ SECTION: NEWS UPDATE (Above Dashboard) */}
       <section
         id="news"
