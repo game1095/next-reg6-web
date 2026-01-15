@@ -20,9 +20,10 @@ export default function DashboardPage() {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
 
-  // Data
+  // --- Data & Selection States ---
   const [docList, setDocList] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // --- Modal States ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -60,6 +61,20 @@ export default function DashboardPage() {
     return `${d} ${months[m - 1]} ${y + 543}`;
   };
 
+  // --- Helper: Get Color based on Type ---
+  const getTypeBadgeColor = (type: string) => {
+    switch (type) {
+      case "คำสั่ง":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "ประกาศ":
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "ขอความร่วมมือ":
+        return "bg-amber-50 text-amber-700 border-amber-200";
+      default: // บันทึกข้อความ
+        return "bg-teal-50 text-teal-700 border-teal-200";
+    }
+  };
+
   // --- Departments List ---
   const departments = ["รป.", "ทข.", "ตล.", "บค.", "อบ.", "กง.", "ทพ."];
 
@@ -69,7 +84,7 @@ export default function DashboardPage() {
     book_no: "",
     date: getTodayDate(),
     dept: "",
-    type: "แจ้งเวียน",
+    type: "บันทึกข้อความ",
     details: "",
     phone: "",
     status: "published",
@@ -107,15 +122,21 @@ export default function DashboardPage() {
     if (error) console.error("Error fetching docs:", error);
     else setDocList(data || []);
     setIsLoadingData(false);
+    setSelectedIds([]);
   };
 
   const uploadFilesToStorage = async () => {
     const uploadedFiles = [];
     for (const file of selectedFiles) {
-      const fileName = `${Date.now()}-${file.name}`;
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 10)}.${fileExt}`;
+
       const { error } = await supabase.storage
         .from("documents")
         .upload(fileName, file);
+
       if (error) {
         Swal.fire({
           icon: "error",
@@ -125,9 +146,11 @@ export default function DashboardPage() {
         });
         continue;
       }
+
       const { data: publicUrlData } = supabase.storage
         .from("documents")
         .getPublicUrl(fileName);
+
       uploadedFiles.push({
         name: file.name,
         url: publicUrlData.publicUrl,
@@ -156,6 +179,73 @@ export default function DashboardPage() {
         confirmButtonColor: "#ED1C24",
       });
       fetchDocuments();
+    }
+  };
+
+  // --- Bulk Actions Functions ---
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allIds = filteredDocs.map((doc) => doc.id);
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: number) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((sid) => sid !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: `ลบ ${selectedIds.length} รายการ?`,
+      text: "คุณแน่ใจหรือไม่ที่จะลบเอกสารที่เลือกทั้งหมด การกระทำนี้ไม่สามารถย้อนกลับได้",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "ยืนยันการลบ",
+      cancelButtonText: "ยกเลิก",
+    });
+
+    if (result.isConfirmed) {
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .in("id", selectedIds);
+
+      if (error) {
+        Swal.fire("Error", error.message, "error");
+      } else {
+        Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
+        fetchDocuments();
+        setSelectedIds([]);
+      }
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: "published" | "draft") => {
+    if (selectedIds.length === 0) return;
+
+    const statusText = newStatus === "published" ? "เผยแพร่" : "ซ่อน (Draft)";
+
+    const { error } = await supabase
+      .from("documents")
+      .update({
+        status: newStatus,
+        status_color:
+          newStatus === "published" ? "bg-green-500" : "bg-gray-400",
+      })
+      .in("id", selectedIds);
+
+    if (error) {
+      Swal.fire("Error", error.message, "error");
     } else {
       const Toast = Swal.mixin({
         toast: true,
@@ -163,16 +253,13 @@ export default function DashboardPage() {
         showConfirmButton: false,
         timer: 2000,
         timerProgressBar: true,
-        didOpen: (toast) => {
-          toast.onmouseenter = Swal.stopTimer;
-          toast.onmouseleave = Swal.resumeTimer;
-        },
       });
       Toast.fire({
         icon: "success",
-        title:
-          newStatus === "published" ? "เผยแพร่เอกสารแล้ว" : "ซ่อนเอกสารแล้ว",
+        title: `เปลี่ยนสถานะเป็น "${statusText}" เรียบร้อยแล้ว`,
       });
+      fetchDocuments();
+      setSelectedIds([]);
     }
   };
 
@@ -198,7 +285,6 @@ export default function DashboardPage() {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ VALIDATION: ตรวจสอบค่าว่าง (ยกเว้น files และ links)
     if (
       !formData.book_no.trim() ||
       !formData.title.trim() ||
@@ -211,9 +297,9 @@ export default function DashboardPage() {
         title: "ข้อมูลไม่ครบถ้วน",
         text: "กรุณากรอกข้อมูลให้ครบทุกช่อง (ยกเว้นไฟล์และลิงก์)",
         confirmButtonText: "ตกลง",
-        confirmButtonColor: "#f59e0b", // สีส้ม Warning
+        confirmButtonColor: "#f59e0b",
       });
-      return; // หยุดการทำงานถ้าข้อมูลไม่ครบ
+      return;
     }
 
     setIsSubmitting(true);
@@ -317,7 +403,7 @@ export default function DashboardPage() {
       book_no: "",
       date: getTodayDate(),
       dept: "",
-      type: "แจ้งเวียน",
+      type: "บันทึกข้อความ",
       details: "",
       phone: "",
       status: "published",
@@ -432,7 +518,7 @@ export default function DashboardPage() {
         </div>
         <MenuItem
           icon={<DocIcon />}
-          label="จัดการหนังสือเวียน"
+          label="จัดการบันทึกข้อความ"
           active={activeTab === "circular"}
           onClick={() => setActiveTab("circular")}
         />
@@ -500,7 +586,7 @@ export default function DashboardPage() {
               <MenuIcon />
             </button>
             <h1 className="text-xl font-black text-gray-800 capitalize tracking-tight">
-              {activeTab === "circular" ? "จัดการหนังสือเวียน" : activeTab}
+              {activeTab === "circular" ? "จัดการบันทึกข้อความ" : activeTab}
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -587,6 +673,41 @@ export default function DashboardPage() {
                     ล้างตัวกรอง
                   </button>
                 </div>
+
+                {/* ✅ ส่วน Bulk Actions Bar */}
+                {selectedIds.length > 0 && (
+                  <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#ED1C24] text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {selectedIds.length}
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">
+                        รายการที่เลือก
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleBulkStatusChange("published")}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
+                      >
+                        เผยแพร่ (Publish)
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusChange("draft")}
+                        className="px-4 py-2 bg-gray-400 text-white rounded-lg text-xs font-bold hover:bg-gray-500 transition-colors"
+                      >
+                        ซ่อน (Draft)
+                      </button>
+                      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <TrashIcon /> ลบที่เลือก
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Table Card */}
@@ -610,7 +731,19 @@ export default function DashboardPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
                         <tr>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32 pl-8">
+                          {/* ✅ Checkbox Select All */}
+                          <th className="p-5 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                              onChange={handleSelectAll}
+                              checked={
+                                filteredDocs.length > 0 &&
+                                selectedIds.length === filteredDocs.length
+                              }
+                            />
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32 pl-2">
                             สถานะ
                           </th>
                           <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
@@ -618,6 +751,9 @@ export default function DashboardPage() {
                           </th>
                           <th className="p-5 text-xs font-extrabold uppercase tracking-wider">
                             เรื่อง / รายละเอียด
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32">
+                            ประเภท
                           </th>
                           <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-48">
                             ส่วนงาน
@@ -634,9 +770,22 @@ export default function DashboardPage() {
                         {filteredDocs.map((doc) => (
                           <tr
                             key={doc.id}
-                            className="group hover:bg-red-50/30 transition-colors"
+                            className={`group transition-colors ${
+                              selectedIds.includes(doc.id)
+                                ? "bg-red-50/40"
+                                : "hover:bg-red-50/30"
+                            }`}
                           >
-                            <td className="p-5 pl-8">
+                            {/* ✅ Checkbox รายแถว */}
+                            <td className="p-5 text-center">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                                checked={selectedIds.includes(doc.id)}
+                                onChange={() => handleSelectOne(doc.id)}
+                              />
+                            </td>
+                            <td className="p-5 pl-2">
                               <span
                                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
                                   doc.status === "published"
@@ -676,6 +825,17 @@ export default function DashboardPage() {
                                 )}
                               </div>
                             </td>
+
+                            <td className="p-5">
+                              <span
+                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
+                                  doc.type
+                                )}`}
+                              >
+                                {doc.type}
+                              </span>
+                            </td>
+
                             <td className="p-5 text-sm font-medium text-gray-500">
                               {doc.dept}
                             </td>
@@ -749,18 +909,18 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* --- ADD/EDIT MODAL (เพิ่ม/แก้ไขเอกสาร) --- */}
+      {/* --- ADD/EDIT MODAL (✅ ปรับขนาดใหญ่ขึ้นตามที่ขอไว้) --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
             onClick={() => setIsAddModalOpen(false)}
           ></div>
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
+          <div className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
               <div>
                 <h3 className="text-xl font-black text-gray-800">
-                  {isEditing ? "แก้ไขหนังสือเวียน" : "เพิ่มหนังสือเวียน"}
+                  {isEditing ? "แก้ไขบันทึกข้อความ" : "เพิ่มบันทึกข้อความ"}
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {isEditing
@@ -862,7 +1022,7 @@ export default function DashboardPage() {
                         onChange={handleInputChange}
                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none appearance-none transition-all cursor-pointer"
                       >
-                        <option value="แจ้งเวียน">แจ้งเวียน</option>
+                        <option value="บันทึกข้อความ">บันทึกข้อความ</option>
                         <option value="ประกาศ">ประกาศ</option>
                         <option value="คำสั่ง">คำสั่ง</option>
                         <option value="ขอความร่วมมือ">ขอความร่วมมือ</option>
@@ -875,7 +1035,6 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    {/* ✅ เพิ่มดอกจันสีแดงตรงนี้ */}
                     รายละเอียดโดยย่อ <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -1096,14 +1255,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- VIEW DETAIL MODAL --- */}
+      {/* --- VIEW DETAIL MODAL (✅ ปรับขนาดใหญ่ขึ้นตามที่ขอไว้) --- */}
       {isViewModalOpen && selectedDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
             onClick={() => setIsViewModalOpen(false)}
           ></div>
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-gray-50 to-white p-6 border-b border-gray-100 flex justify-between items-start">
               <div>
