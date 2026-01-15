@@ -605,7 +605,7 @@ export default function Home() {
           }
         }
         .animate-ken-burns {
-          animation: ken-burns 15s ease-out infinite alternate;
+          animation: ken-burns 20s ease-out infinite alternate;
         }
 
         /* ✅ UPDATED: Fade In Up เร็วขึ้น (0.6s) */
@@ -823,62 +823,91 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD (UPDATED: Added onLoad) */}
+      {/* ✅ SECTION: DASHBOARD (UPDATED CODE) */}
+      {/* ✅ SECTION: DASHBOARD (ปรับขนาดเล็กลง ดูง่ายขึ้น) */}
       <section
         id="dashboard"
-        className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
+        className="py-20 px-4 md:px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
       >
-        <div className="w-full px-4 md:px-12">
+        <div className="max-w-7xl mx-auto w-full">
           {/* Header */}
-          <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase mb-2">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
                 Performance
               </span>
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight leading-tight">
+              <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
                 Dashboard สรุปผลการดำเนินงาน
               </h2>
-              <p className="text-gray-600 mt-2 font-medium text-lg max-w-xl">
-                รายงานภาพรวมผลการดำเนินงานผ่านระบบ Looker Studio
-              </p>
             </div>
 
-            {/* Dashboard Selector Tabs */}
-            <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl self-start md:self-end border border-gray-200 shadow-sm">
-              <button
-                onClick={() => setActiveDashboard("income")}
-                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                  activeDashboard === "income"
-                    ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                }`}
+            {/* Dashboard Selector & Fallback Button */}
+            <div className="flex flex-col sm:flex-row gap-2 md:self-end">
+              {/* ปุ่มเปิดหน้าต่างใหม่ */}
+              <a
+                href={dashboardLinks[activeDashboard]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-gray-200 text-gray-600 hover:text-[#ED1C24] hover:border-red-200 transition-all shadow-sm whitespace-nowrap"
               >
-                รายได้ - รายจ่าย
-              </button>
-              <button
-                onClick={() => setActiveDashboard("fuze")}
-                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                  activeDashboard === "fuze"
-                    ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                }`}
-              >
-                FUZE Post ปข.6
-              </button>
+                <span>เปิดเต็มจอ</span>
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+
+              {/* ปุ่มเลือก Dashboard */}
+              <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm">
+                <button
+                  onClick={() => setActiveDashboard("income")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    activeDashboard === "income"
+                      ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                  }`}
+                >
+                  รายได้ - รายจ่าย
+                </button>
+                <button
+                  onClick={() => setActiveDashboard("fuze")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                    activeDashboard === "fuze"
+                      ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                  }`}
+                >
+                  FUZE Post
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Iframe Container */}
-          <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-200 overflow-hidden relative w-full h-screen transition-all duration-300 group">
-            {/* Loading Indicator inside Card (Optional fallback) */}
-            <div
-              className={`absolute inset-0 bg-gray-50 flex items-center justify-center z-10 transition-opacity duration-500 ${
-                iframeLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
-              }`}
-            >
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
-            </div>
+          {/* จุดที่แก้ไขความสูง: 
+              - h-[500px] สำหรับมือถือ (ดูง่ายขึ้น ไม่ยาวเกิน)
+              - md:h-[650px] สำหรับจอคอม (เห็นข้อมูลครบโดยไม่ต้อง scroll เยอะ)
+          */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative w-full h-[500px] md:h-[650px] transition-all duration-300">
+            {/* Loading Indicator */}
+            {!iframeLoaded && (
+              <div className="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10 p-4 text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mb-4"></div>
+                <p className="text-sm text-gray-500 font-medium">
+                  กำลังโหลด...
+                </p>
+              </div>
+            )}
 
             <iframe
               key={activeDashboard}
@@ -890,7 +919,10 @@ export default function Home() {
               frameBorder="0"
               style={{ border: 0 }}
               allowFullScreen
-              className="absolute top-0 left-0 w-full h-full relative z-0"
+              sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              className={`absolute top-0 left-0 w-full h-full transition-opacity duration-500 ${
+                iframeLoaded ? "opacity-100" : "opacity-0"
+              }`}
             ></iframe>
           </div>
         </div>
