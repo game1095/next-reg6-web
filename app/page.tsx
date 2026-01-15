@@ -1,7 +1,9 @@
 "use client";
+
 import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image"; // ✅ ใช้ Next Image เพื่อความเร็ว
 import { useRouter } from "next/navigation";
 
 // --- Icons Components ---
@@ -41,7 +43,6 @@ export default function Home() {
 
   // --- Global Loading State (SPLASH SCREEN) ---
   const [isSiteReady, setIsSiteReady] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   // --- State ---
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function Home() {
   const [newsList, setNewsList] = useState<any[]>([]); // ข่าวสาร
 
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
-  const [selectedNews, setSelectedNews] = useState<any>(null); // ✅ สำหรับ Modal ข่าว
+  const [selectedNews, setSelectedNews] = useState<any>(null);
 
   // --- Dashboard State ---
   const [activeDashboard, setActiveDashboard] = useState<"income" | "fuze">(
@@ -67,8 +68,8 @@ export default function Home() {
   const newsContainerRef = useRef<HTMLDivElement>(null);
 
   // --- Loading States ---
-  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
-  const [isLoadingNews, setIsLoadingNews] = useState(true);
+  // เราใช้ตัวแปรเดียวเช็คว่าโหลดข้อมูลเสร็จหรือยัง
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- Filter & Pagination (Documents) ---
   const [searchTerm, setSearchTerm] = useState("");
@@ -138,41 +139,46 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- Fetch Data ---
+  // --- Fetch Data (Optimized Parallel Fetching) ---
   useEffect(() => {
-    // 1. Fetch Documents
-    const fetchDocuments = async () => {
-      setIsLoadingDocs(true);
-      const { data } = await supabase
+    const fetchData = async () => {
+      // 1. สร้าง Promise สำหรับดึง Documents
+      const docsPromise = supabase
         .from("documents")
         .select("*")
         .eq("status", "published")
         .order("id", { ascending: false });
 
-      if (data) {
-        setCircularLetters(
-          data.map((doc, i) => ({
-            ...doc,
-            no: i + 1,
-            dateFormatted: formatThaiDate(doc.date),
-          }))
-        );
-      }
-      setIsLoadingDocs(false);
-    };
-
-    // 2. Fetch News (✅ เชื่อมต่อ DB)
-    const fetchNews = async () => {
-      setIsLoadingNews(true);
-      const { data } = await supabase
+      // 2. สร้าง Promise สำหรับดึง News
+      const newsPromise = supabase
         .from("news")
         .select("*")
         .eq("status", "published")
         .order("date", { ascending: false });
 
-      if (data) {
+      // 3. สั่งให้ทำงานพร้อมกัน (Parallel) เพื่อประหยัดเวลา
+      const [docsResult, newsResult] = await Promise.all([
+        docsPromise,
+        newsPromise,
+      ]);
+
+      // 4. Process ข้อมูล Documents
+      if (docsResult.data) {
+        setCircularLetters(
+          docsResult.data.map((doc, i) => ({
+            ...doc,
+            no: i + 1,
+            dateFormatted: formatThaiDate(doc.date),
+            // Map ให้แน่ใจว่า field ตรงกัน
+            bookNo: doc.book_no,
+          }))
+        );
+      }
+
+      // 5. Process ข้อมูล News
+      if (newsResult.data) {
         setNewsList(
-          data.map((item) => ({
+          newsResult.data.map((item) => ({
             ...item,
             dateFormatted: formatThaiDate(item.date),
             category:
@@ -195,37 +201,33 @@ export default function Home() {
           }))
         );
       }
-      setIsLoadingNews(false);
+
+      // ข้อมูลมาครบแล้ว
+      setIsDataLoaded(true);
     };
 
-    fetchDocuments();
-    fetchNews();
+    fetchData();
   }, []);
 
   // --- Splash Screen Logic ---
   useEffect(() => {
-    const safetyTimeout = setTimeout(() => {
-      if (!isSiteReady) setIsSiteReady(true);
-    }, 10000);
-    if (!isLoadingDocs && !isLoadingNews && iframeLoaded) {
-      const smoothDelay = setTimeout(() => {
+    // ถ้าข้อมูลโหลดเสร็จแล้ว ให้หน่วงเวลานิดนึง (800ms) แล้วปิด Splash Screen เลย
+    // ไม่ต้องรอรูปภาพ หรือ iframe เพราะจะทำให้ user รอนานเกินจำเป็น
+    if (isDataLoaded) {
+      const timer = setTimeout(() => {
         setIsSiteReady(true);
-        clearTimeout(safetyTimeout);
       }, 800);
-      return () => clearTimeout(smoothDelay);
+      return () => clearTimeout(timer);
     }
-    return () => clearTimeout(safetyTimeout);
-  }, [isLoadingDocs, isLoadingNews, iframeLoaded]);
+  }, [isDataLoaded]);
 
   // --- Filter Logic ---
   const filteredDocs = circularLetters.filter((doc) => {
     const term = searchTerm.toLowerCase();
-
-    // ✅ เพิ่มเงื่อนไขค้นหาจาก doc.details
     const matchesSearch =
       doc.title?.toLowerCase().includes(term) ||
       doc.book_no?.toLowerCase().includes(term) ||
-      (doc.details && doc.details.toLowerCase().includes(term)); // <--- เพิ่มบรรทัดนี้
+      (doc.details && doc.details.toLowerCase().includes(term));
 
     const matchesDept = filterDept ? doc.dept === filterDept : true;
     return matchesSearch && matchesDept;
@@ -237,16 +239,6 @@ export default function Home() {
       return news.type === "ข่าวประชาสัมพันธ์";
     return false;
   });
-
-  const scrollNews = (direction: "left" | "right") => {
-    if (newsContainerRef.current) {
-      const amount = 350;
-      newsContainerRef.current.scrollBy({
-        left: direction === "left" ? -amount : amount,
-        behavior: "smooth",
-      });
-    }
-  };
 
   // --- Handlers ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -307,8 +299,8 @@ export default function Home() {
   // --- Data Arrays ---
   const navItems = [
     { name: "หน้าหลัก", href: "/", active: true },
-    { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false }, // ✅ ปรับชื่อไทย
-    { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false }, // ✅ ปรับชื่อไทย
+    { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
+    { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
       name: "ระบบรายงานผลประจำวัน",
@@ -362,11 +354,17 @@ export default function Home() {
           isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
+        {/* แก้ไขส่วนรูปภาพตรงนี้ครับ */}
         <div className="mb-8 relative">
-          <img
+          {/* ✅ ใช้เทคนิค width=0 height=0 + sizes="100vw" เพื่อให้กำหนดขนาดด้วย class w-.. h-auto ได้เหมือน img ปกติ */}
+          <Image
             src="/loading_1.jpg"
             alt="Loading Logo"
+            width={0}
+            height={0}
+            sizes="100vw"
             className="w-80 md:w-[500px] h-auto object-contain rounded-2xl shadow-2xl"
+            priority
           />
         </div>
         <h2 className="mt-6 text-3xl font-black text-gray-900 tracking-tight">
@@ -380,7 +378,7 @@ export default function Home() {
           <div className="absolute top-0 left-0 h-full w-1/3 bg-white/30 blur-sm animate-[dash-flow_1.5s_infinite]"></div>
         </div>
         <p className="mt-4 text-xs text-gray-400">
-          {iframeLoaded ? "ข้อมูลพร้อมใช้งาน" : "กำลังโหลด Dashboard..."}
+          {isDataLoaded ? "พร้อมใช้งาน" : "กำลังโหลดข้อมูล..."}
         </p>
       </div>
 
@@ -405,21 +403,6 @@ export default function Home() {
         .animate-dash-flow {
           animation: dash-flow 2s linear infinite;
         }
-        @keyframes float-card {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-15px);
-          }
-        }
-        .animate-float-card-1 {
-          animation: float-card 5s ease-in-out infinite;
-        }
-        .animate-ken-burns {
-          animation: ken-burns 20s ease-out infinite alternate;
-        }
         @keyframes ken-burns {
           0% {
             transform: scale(1) translate(0, 0);
@@ -427,6 +410,9 @@ export default function Home() {
           100% {
             transform: scale(1.15) translate(-1%, -1%);
           }
+        }
+        .animate-ken-burns {
+          animation: ken-burns 20s ease-out infinite alternate;
         }
         @keyframes fade-in-up {
           0% {
@@ -581,10 +567,13 @@ export default function Home() {
       {/* HERO SECTION */}
       <section className="relative w-full h-[550px] md:h-[750px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img
+          {/* ✅ Optimized Hero Image (LCP) */}
+          <Image
             src="/hero_img3.jpg"
             alt="Regional Postal Bureau Region 6 Office"
-            className="w-full h-full object-cover object-[center_40%] animate-ken-burns"
+            fill
+            className="object-cover object-[center_40%] animate-ken-burns"
+            priority
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
@@ -619,7 +608,7 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white via-white/60 to-transparent z-10 pointer-events-none"></div>
       </section>
 
-      {/* ✅ SECTION: NEWS UPDATE (THAI HEADER) */}
+      {/* ✅ SECTION: NEWS UPDATE */}
       <section
         id="news"
         className="py-20 px-4 md:px-6 bg-white border-b border-gray-100 relative overflow-hidden"
@@ -633,7 +622,6 @@ export default function Home() {
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ED1C24]"></span>
                 Updates
               </span>
-              {/* ✅ เปลี่ยนหัวข้อเป็นภาษาไทย */}
               <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 tracking-tight">
                 ข่าวประชาสัมพันธ์
               </h2>
@@ -738,7 +726,9 @@ export default function Home() {
             >
               {filteredNews.length === 0 ? (
                 <div className="w-full py-10 text-center text-gray-400 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                  ไม่พบข่าวสารในหมวดหมู่นี้
+                  {isDataLoaded
+                    ? "ไม่พบข่าวสารในหมวดหมู่นี้"
+                    : "กำลังโหลดข่าวสาร..."}
                 </div>
               ) : (
                 filteredNews.map((news, idx) => (
@@ -762,17 +752,20 @@ export default function Home() {
                     >
                       {news.cover_image?.url ? (
                         <>
+                          {/* ✅ Optimized News Image */}
                           <div className="absolute inset-0 w-full h-full overflow-hidden">
-                            <img
+                            <Image
                               src={news.cover_image.url}
                               alt="blur-bg"
-                              className="w-full h-full object-cover blur-lg scale-125 opacity-100 brightness-75"
+                              fill
+                              className="object-cover blur-lg scale-125 opacity-100 brightness-75"
                             />
                           </div>
-                          <img
+                          <Image
                             src={news.cover_image.url}
                             alt="cover"
-                            className="relative z-10 h-full w-full object-contain shadow-md transition-transform duration-700 ease-out group-hover:scale-105"
+                            fill
+                            className="relative z-10 object-contain shadow-md transition-transform duration-700 ease-out group-hover:scale-105"
                           />
                         </>
                       ) : (
@@ -855,7 +848,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD (THAI HEADER & RED THEME) */}
+      {/* ✅ SECTION: DASHBOARD */}
       <section
         id="dashboard"
         className="py-20 px-4 md:px-6 bg-gradient-to-b from-gray-50 to-white border-t border-gray-200"
@@ -863,12 +856,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto w-full">
           <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              {/* ✅ ปรับ Badge เป็นสีแดงทั้งหมด */}
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-[#ED1C24] text-xs font-bold tracking-widest uppercase mb-2">
                 <span className="w-2 h-2 rounded-full bg-[#ED1C24] animate-pulse"></span>
                 Performance
               </span>
-              {/* ✅ เปลี่ยนหัวข้อเป็นภาษาไทยสื่อความหมาย */}
               <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight">
                 สรุปผลการดำเนินงาน
               </h2>
@@ -920,30 +911,21 @@ export default function Home() {
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative w-full h-[500px] md:h-[650px] transition-all duration-300">
-            {!iframeLoaded && (
-              <div className="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10 p-4 text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mb-4"></div>
-                <p className="text-sm text-gray-500 font-medium">
-                  กำลังโหลด...
-                </p>
-              </div>
-            )}
+            {/* ✅ Iframe with Lazy Loading */}
             <iframe
               key={activeDashboard}
               src={dashboardLinks[activeDashboard]}
-              onLoad={() => setIframeLoaded(true)}
+              loading="lazy"
               frameBorder="0"
               style={{ border: 0 }}
               allowFullScreen
-              className={`absolute top-0 left-0 w-full h-full transition-opacity duration-500 ${
-                iframeLoaded ? "opacity-100" : "opacity-0"
-              }`}
+              className="absolute top-0 left-0 w-full h-full"
             ></iframe>
           </div>
         </div>
       </section>
 
-      {/* ✅ SECTION: OFFICIAL DOCUMENTS (CLEAN BADGES) */}
+      {/* ✅ SECTION: OFFICIAL DOCUMENTS */}
       <section
         id="circular"
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
@@ -1032,16 +1014,7 @@ export default function Home() {
 
             {/* Table Content */}
             <div className="relative min-h-[400px] bg-transparent p-2 md:p-4 rounded-b-3xl">
-              {isLoadingDocs ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 gap-4 rounded-3xl">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-4 border-gray-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
-                  </div>
-                  <span className="text-gray-500 font-medium animate-pulse text-sm">
-                    กำลังโหลดข้อมูล...
-                  </span>
-                </div>
-              ) : filteredDocs.length === 0 ? (
+              {filteredDocs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white rounded-3xl shadow-sm border border-gray-100">
                   <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                     <svg
@@ -1059,7 +1032,7 @@ export default function Home() {
                     </svg>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">
-                    ไม่พบเอกสาร
+                    {isDataLoaded ? "ไม่พบเอกสาร" : "กำลังโหลดข้อมูล..."}
                   </h3>
                   <button
                     onClick={() => {
@@ -1122,49 +1095,21 @@ export default function Home() {
                                   {doc.title}
                                 </h4>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  {/* ✅ ตรวจสอบว่ามีเลขที่หนังสือหรือไม่ ก่อนแสดง */}
                                   {doc.bookNo && (
                                     <span className="text-[10px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded border border-gray-200 whitespace-nowrap">
                                       {doc.bookNo}
                                     </span>
                                   )}
 
-                                  {/* ✅ ตรวจสอบจำนวนไฟล์ก่อนแสดง */}
                                   {doc.files && doc.files.length > 0 && (
                                     <span className="flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 whitespace-nowrap">
-                                      <svg
-                                        className="w-3 h-3"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                                        />
-                                      </svg>
+                                      <FileIcon />
                                       {doc.files.length} ไฟล์
                                     </span>
                                   )}
 
-                                  {/* ✅ ตรวจสอบจำนวนลิงก์ก่อนแสดง */}
                                   {doc.links && doc.links.length > 0 && (
                                     <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 whitespace-nowrap">
-                                      <svg
-                                        className="w-3 h-3"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                                        />
-                                      </svg>
                                       {doc.links.length} ลิงก์
                                     </span>
                                   )}
@@ -1175,7 +1120,6 @@ export default function Home() {
 
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
                             <div className="flex flex-col items-center justify-center gap-2">
-                              {/* ✅ ตรวจสอบ doc.type ก่อนแสดง */}
                               {doc.type && (
                                 <span
                                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
@@ -1187,9 +1131,7 @@ export default function Home() {
                                   }`}
                                 >
                                   <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      doc.statusColor || "bg-gray-400"
-                                    }`}
+                                    className={`w-1.5 h-1.5 rounded-full bg-current`}
                                   ></span>
                                   {doc.type}
                                 </span>
@@ -1201,7 +1143,6 @@ export default function Home() {
                           </td>
 
                           <td className="bg-white p-4 align-middle text-center shadow-sm group-hover:shadow-lg transition-all">
-                            {/* ✅ ตรวจสอบ doc.dept ก่อนแสดง */}
                             {doc.dept ? (
                               <span
                                 className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
@@ -1496,7 +1437,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* ✅ DOCUMENT MODAL (FIXED: BOOK NUMBER) */}
+          {/* DOCUMENT MODAL */}
           {selectedDocument && (
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative z-10 animate-fade-in-up overflow-hidden max-h-[90vh] flex flex-col">
               <div className="absolute top-4 right-4 z-20">
@@ -1518,7 +1459,6 @@ export default function Home() {
                   <span className="text-gray-500 text-sm font-medium">
                     เลขที่:{" "}
                     <span className="text-gray-900 font-bold">
-                      {/* ✅ แก้เป็น book_no (และกันเหนียวด้วย bookNo) */}
                       {selectedDocument.book_no ||
                         selectedDocument.bookNo ||
                         "-"}
@@ -1795,11 +1735,13 @@ export default function Home() {
                     <CloseIcon />
                   </button>
                   {selectedNews.cover_image?.url && (
-                    <img
-                      src={selectedNews.cover_image.url}
-                      alt="Full PR"
-                      className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-                    />
+                    <div className="relative max-w-full max-h-[85vh] w-auto h-auto">
+                      <img // ใช้ img ธรรมดาสำหรับ Modal ภาพใหญ่ เพื่อให้ scale ได้ตามขนาดจริงของภาพ
+                        src={selectedNews.cover_image.url}
+                        alt="Full PR"
+                        className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                      />
+                    </div>
                   )}
                 </div>
               ) : (
@@ -1807,19 +1749,22 @@ export default function Home() {
                 <>
                   <div className="relative h-64 md:h-80 bg-gray-100">
                     {selectedNews.cover_image?.url && (
-                      <img
+                      // ใช้ Next Image
+                      <Image
                         src={selectedNews.cover_image.url}
+                        alt="News Cover"
+                        fill
                         className="w-full h-full object-cover"
                       />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     <button
                       onClick={() => setSelectedNews(null)}
-                      className="absolute top-4 right-4 w-10 h-10 bg-black/20 backdrop-blur-md border border-white/20 text-white rounded-full flex items-center justify-center hover:bg-white hover:text-red-600 transition-all"
+                      className="absolute top-4 right-4 w-10 h-10 bg-black/20 backdrop-blur-md border border-white/20 text-white rounded-full flex items-center justify-center hover:bg-white hover:text-red-600 transition-all z-20"
                     >
                       <CloseIcon />
                     </button>
-                    <div className="absolute bottom-6 left-6 right-6 text-white">
+                    <div className="absolute bottom-6 left-6 right-6 text-white z-10">
                       <span className="px-2 py-1 bg-red-600 text-[10px] font-bold rounded uppercase mb-2 inline-block">
                         {selectedNews.category}
                       </span>
@@ -1846,10 +1791,12 @@ export default function Home() {
                             (img: any, i: number) => (
                               <div
                                 key={i}
-                                className="rounded-xl overflow-hidden aspect-[4/3] cursor-pointer hover:opacity-90 transition-opacity border border-gray-100 shadow-sm"
+                                className="rounded-xl overflow-hidden aspect-[4/3] cursor-pointer hover:opacity-90 transition-opacity border border-gray-100 shadow-sm relative"
                               >
-                                <img
+                                <Image
                                   src={img.url}
+                                  alt={`Gallery ${i}`}
+                                  fill
                                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                   onClick={() => window.open(img.url, "_blank")}
                                 />

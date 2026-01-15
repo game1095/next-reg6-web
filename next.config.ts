@@ -1,16 +1,15 @@
-import type { NextConfig } from "next";
-
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "https://blizptuzyhhnryvccfqd.supabase.co",
+        hostname: "blizptuzyhhnryvccfqd.supabase.co", // 🔴 นี่คือ Hostname ของ Supabase คุณตาม Error
         port: "",
-        pathname: "/storage/v1/object/public/**",
+        pathname: "/storage/v1/object/public/**", // อนุญาตเฉพาะ public bucket
       },
     ],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
