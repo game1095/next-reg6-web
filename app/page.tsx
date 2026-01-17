@@ -3,7 +3,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image"; // ✅ ใช้ Next Image เพื่อความเร็ว
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 // --- Icons Components ---
@@ -49,6 +49,9 @@ export default function Home() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
+  // ✅ State สำหรับ Mobile Menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // --- Data States (From Supabase) ---
   const [circularLetters, setCircularLetters] = useState<any[]>([]); // เอกสาร
   const [newsList, setNewsList] = useState<any[]>([]); // ข่าวสาร
@@ -62,14 +65,12 @@ export default function Home() {
   );
 
   // --- News State ---
-  // ✅ 1. แก้ไข: ตั้งค่าเริ่มต้นเป็น "ประชาสัมพันธ์"
   const [activeNewsTab, setActiveNewsTab] = useState<
     "ทั่วไป" | "ประชาสัมพันธ์"
   >("ประชาสัมพันธ์");
   const newsContainerRef = useRef<HTMLDivElement>(null);
 
   // --- Loading States ---
-  // เราใช้ตัวแปรเดียวเช็คว่าโหลดข้อมูลเสร็จหรือยัง
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- Filter & Pagination (Documents) ---
@@ -143,40 +144,34 @@ export default function Home() {
   // --- Fetch Data (Optimized Parallel Fetching) ---
   useEffect(() => {
     const fetchData = async () => {
-      // 1. สร้าง Promise สำหรับดึง Documents
       const docsPromise = supabase
         .from("documents")
         .select("*")
         .eq("status", "published")
         .order("id", { ascending: false });
 
-      // 2. สร้าง Promise สำหรับดึง News
       const newsPromise = supabase
         .from("news")
         .select("*")
         .eq("status", "published")
         .order("date", { ascending: false });
 
-      // 3. สั่งให้ทำงานพร้อมกัน (Parallel) เพื่อประหยัดเวลา
       const [docsResult, newsResult] = await Promise.all([
         docsPromise,
         newsPromise,
       ]);
 
-      // 4. Process ข้อมูล Documents
       if (docsResult.data) {
         setCircularLetters(
           docsResult.data.map((doc, i) => ({
             ...doc,
             no: i + 1,
             dateFormatted: formatThaiDate(doc.date),
-            // Map ให้แน่ใจว่า field ตรงกัน
             bookNo: doc.book_no,
           }))
         );
       }
 
-      // 5. Process ข้อมูล News
       if (newsResult.data) {
         setNewsList(
           newsResult.data.map((item) => ({
@@ -202,18 +197,13 @@ export default function Home() {
           }))
         );
       }
-
-      // ข้อมูลมาครบแล้ว
       setIsDataLoaded(true);
     };
-
     fetchData();
   }, []);
 
   // --- Splash Screen Logic ---
   useEffect(() => {
-    // ถ้าข้อมูลโหลดเสร็จแล้ว ให้หน่วงเวลานิดนึง (800ms) แล้วปิด Splash Screen เลย
-    // ไม่ต้องรอรูปภาพ หรือ iframe เพราะจะทำให้ user รอนานเกินจำเป็น
     if (isDataLoaded) {
       const timer = setTimeout(() => {
         setIsSiteReady(true);
@@ -265,6 +255,10 @@ export default function Home() {
       e.preventDefault();
       return;
     }
+
+    // ✅ ปิดเมนูมือถือเมื่อกดลิงก์
+    setIsMobileMenuOpen(false);
+
     e.preventDefault();
     if (item.name === "ติดต่อเรา") setIsContactOpen(true);
     else if (item.name === "Admin") {
@@ -281,7 +275,6 @@ export default function Home() {
         window.scrollTo({ top: offsetPosition, behavior: "smooth" });
       }
     } else {
-      // ✅ 2. แก้ไข: รองรับการเปลี่ยนหน้าภายใน (Internal Route) ด้วย router.push
       router.push(item.href);
     }
   };
@@ -304,10 +297,9 @@ export default function Home() {
     { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
     { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
-    // ✅ 3. แก้ไข: ยุบรวมเมนูรายงาน เป็น "รวมระบบงานไปรษณีย์"
     {
       name: "รวมระบบงานไปรษณีย์",
-      href: "/postal-systems", // ⚠️ อย่าลืมสร้าง page นี้ใน App Router
+      href: "/postal-systems",
       active: false,
     },
     {
@@ -342,9 +334,7 @@ export default function Home() {
           isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
       >
-        {/* แก้ไขส่วนรูปภาพตรงนี้ครับ */}
         <div className="mb-8 relative">
-          {/* ✅ ใช้เทคนิค width=0 height=0 + sizes="100vw" เพื่อให้กำหนดขนาดด้วย class w-.. h-auto ได้เหมือน img ปกติ */}
           <Image
             src="/loading_1.jpg"
             alt="Loading Logo"
@@ -442,7 +432,7 @@ export default function Home() {
         }
       `}</style>
 
-      {/* NAVBAR */}
+      {/* ✅ NAVBAR (Responsive) */}
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
@@ -451,6 +441,7 @@ export default function Home() {
         }`}
       >
         <div className="w-full px-6 md:px-10 h-16 flex justify-between items-center">
+          {/* Logo Section */}
           <Link
             href="/"
             className="flex items-center gap-4 group flex-shrink-0"
@@ -475,7 +466,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col">
               <span
-                className={`font-black text-xl md:text-2xl leading-none tracking-tight transition-colors duration-300 ${
+                className={`font-black text-lg md:text-2xl leading-none tracking-tight transition-colors duration-300 ${
                   isScrolled
                     ? "text-gray-900 group-hover:text-[#ED1C24]"
                     : "text-white drop-shadow-md"
@@ -484,7 +475,7 @@ export default function Home() {
                 สำนักงานไปรษณีย์เขต 6
               </span>
               <span
-                className={`text-[11px] font-bold tracking-[0.15em] uppercase mt-0.5 transition-colors duration-300 ${
+                className={`text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mt-0.5 transition-colors duration-300 ${
                   isScrolled
                     ? "text-gray-500 group-hover:text-red-400"
                     : "text-gray-200 group-hover:text-white"
@@ -494,6 +485,8 @@ export default function Home() {
               </span>
             </div>
           </Link>
+
+          {/* Desktop Menu (Hidden on Mobile) */}
           <div
             className={`hidden md:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
@@ -549,13 +542,108 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Mobile Hamburger Button (Visible only on Mobile) */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={`md:hidden p-2 rounded-lg transition-colors ${
+              isScrolled ? "text-gray-800" : "text-white"
+            }`}
+          >
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16m-7 6h7"
+              />
+            </svg>
+          </button>
         </div>
       </nav>
+
+      {/* ✅ Mobile Menu Overlay (Full Screen) */}
+      <div
+        className={`fixed inset-0 z-[60] bg-white transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Mobile Header */}
+          <div className="flex justify-between items-center p-6 border-b border-gray-100">
+            <span className="text-xl font-black text-gray-900">เมนูหลัก</span>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 -mr-2 text-gray-500 hover:text-red-500 transition-colors"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          {/* Mobile Links */}
+          <div className="flex-1 overflow-y-auto py-4 px-6 space-y-2">
+            {navItems.map((item, index) => (
+              <div
+                key={index}
+                className="border-b border-gray-50 last:border-0 pb-2"
+              >
+                <Link
+                  href={item.href || "#"}
+                  onClick={(e) => handleNavClick(e, item)}
+                  className={`flex items-center justify-between py-3 text-lg font-bold ${
+                    item.active
+                      ? "text-[#ED1C24]"
+                      : "text-gray-700 hover:text-[#ED1C24]"
+                  }`}
+                >
+                  {item.name}
+                  {item.dropdown && (
+                    <svg
+                      className="w-5 h-5 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  )}
+                </Link>
+                {/* Mobile Dropdown Items (แสดงออกมาเลย) */}
+                {item.dropdown && (
+                  <div className="pl-4 mt-1 space-y-2 border-l-2 border-red-100 ml-1">
+                    {item.dropdown.map((subItem, subIndex) => (
+                      <Link
+                        key={subIndex}
+                        href={subItem.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block py-2 text-sm text-gray-500 font-medium hover:text-[#ED1C24]"
+                      >
+                        {subItem.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* ✅ ลบปุ่ม "ติดต่อเรา" ขนาดใหญ่ด้านล่างออกแล้วครับ */}
+        </div>
+      </div>
 
       {/* HERO SECTION */}
       <section className="relative w-full h-[550px] md:h-[750px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          {/* ✅ Optimized Hero Image (LCP) */}
           <Image
             src="/hero_img3.jpg"
             alt="Regional Postal Bureau Region 6 Office"
@@ -596,7 +684,7 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-white via-white/60 to-transparent z-10 pointer-events-none"></div>
       </section>
 
-      {/* ✅ SECTION: NEWS UPDATE */}
+      {/* SECTION: NEWS UPDATE */}
       <section
         id="news"
         className="py-20 px-4 md:px-6 bg-white border-b border-gray-100 relative overflow-hidden"
@@ -649,7 +737,6 @@ export default function Home() {
             <button
               onClick={() => {
                 if (newsContainerRef.current) {
-                  // ✅ 4. แก้ไข: ปรับ scrollAmount ให้เท่ากัน
                   const scrollAmount = 344;
                   newsContainerRef.current.scrollBy({
                     left: -scrollAmount,
@@ -678,7 +765,6 @@ export default function Home() {
             <button
               onClick={() => {
                 if (newsContainerRef.current) {
-                  // ✅ 4. แก้ไข: ปรับ scrollAmount ให้เท่ากัน
                   const scrollAmount = 344;
                   newsContainerRef.current.scrollBy({
                     left: scrollAmount,
@@ -722,7 +808,6 @@ export default function Home() {
                 filteredNews.map((news, idx) => (
                   <article
                     key={idx}
-                    // ✅ 5. แก้ไข: ลบเงื่อนไขขนาดการ์ดออก ใช้ขนาดเดียวกับข่าวทั่วไป (w-[320px]...)
                     className={`snap-center bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl hover:border-red-100 transition-all duration-300 flex flex-col select-none flex-shrink-0 relative
                       w-[320px] h-[480px] md:w-[360px] md:h-[500px]
                     `}
@@ -737,7 +822,6 @@ export default function Home() {
                     >
                       {news.cover_image?.url ? (
                         <>
-                          {/* ✅ Optimized News Image */}
                           <div className="absolute inset-0 w-full h-full overflow-hidden">
                             <Image
                               src={news.cover_image.url}
@@ -833,7 +917,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: DASHBOARD */}
+      {/* SECTION: DASHBOARD */}
       <section
         id="dashboard"
         className="py-20 px-4 md:px-6 bg-gradient-to-b from-gray-50 to-white border-t border-gray-200"
@@ -896,7 +980,6 @@ export default function Home() {
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden relative w-full h-[500px] md:h-[650px] transition-all duration-300">
-            {/* ✅ Iframe with Lazy Loading */}
             <iframe
               key={activeDashboard}
               src={dashboardLinks[activeDashboard]}
@@ -910,7 +993,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ SECTION: OFFICIAL DOCUMENTS */}
+      {/* SECTION: OFFICIAL DOCUMENTS */}
       <section
         id="circular"
         className="py-24 px-6 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200"
@@ -1721,7 +1804,7 @@ export default function Home() {
                   </button>
                   {selectedNews.cover_image?.url && (
                     <div className="relative max-w-full max-h-[85vh] w-auto h-auto">
-                      <img // ใช้ img ธรรมดาสำหรับ Modal ภาพใหญ่ เพื่อให้ scale ได้ตามขนาดจริงของภาพ
+                      <img
                         src={selectedNews.cover_image.url}
                         alt="Full PR"
                         className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
@@ -1734,7 +1817,6 @@ export default function Home() {
                 <>
                   <div className="relative h-64 md:h-80 bg-gray-100">
                     {selectedNews.cover_image?.url && (
-                      // ใช้ Next Image
                       <Image
                         src={selectedNews.cover_image.url}
                         alt="News Cover"
