@@ -62,9 +62,10 @@ export default function Home() {
   );
 
   // --- News State ---
+  // ✅ 1. แก้ไข: ตั้งค่าเริ่มต้นเป็น "ประชาสัมพันธ์"
   const [activeNewsTab, setActiveNewsTab] = useState<
     "ทั่วไป" | "ประชาสัมพันธ์"
-  >("ทั่วไป");
+  >("ประชาสัมพันธ์");
   const newsContainerRef = useRef<HTMLDivElement>(null);
 
   // --- Loading States ---
@@ -280,7 +281,8 @@ export default function Home() {
         window.scrollTo({ top: offsetPosition, behavior: "smooth" });
       }
     } else {
-      window.location.href = item.href;
+      // ✅ 2. แก้ไข: รองรับการเปลี่ยนหน้าภายใน (Internal Route) ด้วย router.push
+      router.push(item.href);
     }
   };
 
@@ -302,25 +304,11 @@ export default function Home() {
     { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
     { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
+    // ✅ 3. แก้ไข: ยุบรวมเมนูรายงาน เป็น "รวมระบบงานไปรษณีย์"
     {
-      name: "ระบบรายงานผลประจำวัน",
-      href: "#",
+      name: "รวมระบบงานไปรษณีย์",
+      href: "/postal-systems", // ⚠️ อย่าลืมสร้าง page นี้ใน App Router
       active: false,
-      dropdown: [
-        { name: "รายงานสถานะการเงินและการเบิกเงิน/ส่งเงินธนาคาร", href: "#" },
-        { name: "รายงาน Shopee", href: "#" },
-      ],
-    },
-    {
-      name: "รายงานผลประจำเดือน",
-      href: "#",
-      active: false,
-      dropdown: [
-        { name: "รายงาน รส.5", href: "#" },
-        { name: "รายงาน ป.70/ป.80", href: "#" },
-        { name: "รายงานการใช้น้ำมันเชื้อเพลิงด้วยบัตรเครดิตน้ำมัน", href: "#" },
-        { name: "รายงานลูกค้ารายใหญ่", href: "#" },
-      ],
     },
     {
       name: "Download เอกสาร",
@@ -661,8 +649,8 @@ export default function Home() {
             <button
               onClick={() => {
                 if (newsContainerRef.current) {
-                  const scrollAmount =
-                    activeNewsTab === "ประชาสัมพันธ์" ? 400 : 344;
+                  // ✅ 4. แก้ไข: ปรับ scrollAmount ให้เท่ากัน
+                  const scrollAmount = 344;
                   newsContainerRef.current.scrollBy({
                     left: -scrollAmount,
                     behavior: "smooth",
@@ -690,8 +678,8 @@ export default function Home() {
             <button
               onClick={() => {
                 if (newsContainerRef.current) {
-                  const scrollAmount =
-                    activeNewsTab === "ประชาสัมพันธ์" ? 400 : 344;
+                  // ✅ 4. แก้ไข: ปรับ scrollAmount ให้เท่ากัน
+                  const scrollAmount = 344;
                   newsContainerRef.current.scrollBy({
                     left: scrollAmount,
                     behavior: "smooth",
@@ -734,12 +722,9 @@ export default function Home() {
                 filteredNews.map((news, idx) => (
                   <article
                     key={idx}
+                    // ✅ 5. แก้ไข: ลบเงื่อนไขขนาดการ์ดออก ใช้ขนาดเดียวกับข่าวทั่วไป (w-[320px]...)
                     className={`snap-center bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-2xl hover:border-red-100 transition-all duration-300 flex flex-col select-none flex-shrink-0 relative
-                      ${
-                        activeNewsTab === "ประชาสัมพันธ์"
-                          ? "w-[360px] h-[540px] md:w-[400px] md:h-[600px]"
-                          : "w-[320px] h-[480px] md:w-[360px] md:h-[500px]"
-                      }
+                      w-[320px] h-[480px] md:w-[360px] md:h-[500px]
                     `}
                     onClick={() => setSelectedNews(news)}
                   >

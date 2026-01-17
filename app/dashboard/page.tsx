@@ -12,7 +12,7 @@ export default function DashboardPage() {
   // --- Auth & UI States ---
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [userEmail, setUserEmail] = useState("");
-  const [activeTab, setActiveTab] = useState("circular"); // circular, news, overview
+  const [activeTab, setActiveTab] = useState("circular"); // circular, news, systems, overview
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // --- Filter States ---
@@ -24,6 +24,7 @@ export default function DashboardPage() {
   // --- Data & Selection States ---
   const [docList, setDocList] = useState<any[]>([]);
   const [newsList, setNewsList] = useState<any[]>([]);
+  const [systemList, setSystemList] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   const [isViewNewsModalOpen, setIsViewNewsModalOpen] = useState(false);
+  const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
 
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [selectedNews, setSelectedNews] = useState<any>(null);
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editDocId, setEditDocId] = useState<number | null>(null);
   const [editNewsId, setEditNewsId] = useState<number | null>(null);
+  const [editSystemId, setEditSystemId] = useState<number | null>(null);
 
   // --- Toast ---
   const Toast = Swal.mixin({
@@ -94,6 +97,15 @@ export default function DashboardPage() {
   };
 
   const departments = ["รป.", "ทข.", "ตล.", "บค.", "อบ.", "กง.", "ทพ."];
+  const departmentFullNames: Record<string, string> = {
+    "รป.": "ส่วนระบบไปรษณีย์และสารสนเทศ",
+    "ทข.": "ส่วนทีมขายและดูแลลูกค้า",
+    "ตล.": "ส่วนการตลาดและบริการลูกค้า",
+    "บค.": "ส่วนบริการหลังการขายและคุณภาพ",
+    "อบ.": "ส่วนอำนวยการและบุคคล",
+    "กง.": "ส่วนการเงินและบัญชี",
+    "ทพ.": "ส่วนทรัพย์สินและพัสดุ",
+  };
 
   // --- Form Data ---
   const [formData, setFormData] = useState({
@@ -122,6 +134,13 @@ export default function DashboardPage() {
   const [newsGalleryImages, setNewsGalleryImages] = useState<File[]>([]);
   const [existingGalleryImages, setExistingGalleryImages] = useState<any[]>([]);
 
+  const [systemFormData, setSystemFormData] = useState({
+    name: "",
+    url: "",
+    dept: "",
+    status: "published",
+  });
+
   // --- Init ---
   useEffect(() => {
     const init = async () => {
@@ -134,8 +153,10 @@ export default function DashboardPage() {
       }
       setUserEmail(user.email || "Admin");
       setIsAuthChecking(false);
+
       if (activeTab === "circular") fetchDocuments();
       else if (activeTab === "news") fetchNews();
+      else if (activeTab === "systems") fetchSystems();
     };
     init();
   }, [router, activeTab]);
@@ -166,6 +187,16 @@ export default function DashboardPage() {
     else setNewsList(data || []);
     setIsLoadingData(false);
   };
+  const fetchSystems = async () => {
+    setIsLoadingData(true);
+    const { data, error } = await supabase
+      .from("postal_systems")
+      .select("*")
+      .order("id", { ascending: false });
+    if (error) console.error(error);
+    else setSystemList(data || []);
+    setIsLoadingData(false);
+  };
 
   const uploadFileSingle = async (file: File, bucket: string = "documents") => {
     let fileToUpload = file;
@@ -181,7 +212,7 @@ export default function DashboardPage() {
           type: file.type,
         });
       } catch (error) {
-        console.warn("Image compression failed, uploading original.", error);
+        console.warn("Image compression failed", error);
       }
     }
     const fileExt = file.name.split(".").pop();
@@ -219,14 +250,49 @@ export default function DashboardPage() {
   };
 
   // --- Handlers ---
+  const handleSystemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!systemFormData.name || !systemFormData.url || !systemFormData.dept) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณากรอกข้อมูลให้ครบ",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ...systemFormData,
+        status_color:
+          systemFormData.status === "published"
+            ? "bg-green-500"
+            : "bg-gray-400",
+      };
+      if (isEditing && editSystemId) {
+        await supabase
+          .from("postal_systems")
+          .update(payload)
+          .eq("id", editSystemId);
+      } else {
+        await supabase.from("postal_systems").insert([payload]);
+      }
+      Toast.fire({ icon: "success", title: "บันทึกระบบงานเรียบร้อย" });
+      setIsSystemModalOpen(false);
+      resetSystemForm();
+      fetchSystems();
+    } catch (error: any) {
+      Swal.fire({ icon: "error", title: "Error", text: error.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleNewsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // ✅ Logic การตั้งชื่อหัวข้ออัตโนมัติ
     let finalTitle = newsFormData.title;
-
     if (newsFormData.type === "ข่าวสารทั่วไป") {
-      // ถ้าเป็นข่าวทั่วไป ต้องกรอกหัวข้อ
       if (!finalTitle.trim()) {
         Swal.fire({
           icon: "warning",
@@ -238,10 +304,8 @@ export default function DashboardPage() {
         return;
       }
     } else {
-      // ถ้าเป็นข่าวประชาสัมพันธ์ ให้ตั้งชื่ออัตโนมัติ
       finalTitle = `ประชาสัมพันธ์วันที่ ${formatThaiDate(newsFormData.date)}`;
     }
-
     if (!newsFormData.details.trim()) {
       Swal.fire({
         icon: "warning",
@@ -258,20 +322,15 @@ export default function DashboardPage() {
       let coverData = existingCoverImage;
       if (newsCoverImage)
         coverData = await uploadFileSingle(newsCoverImage, "documents");
-
       const newGalleryData = [];
-      // ✅ อัปโหลด Gallery เฉพาะ "ข่าวสารทั่วไป"
       if (newsFormData.type === "ข่าวสารทั่วไป") {
-        for (const file of newsGalleryImages) {
-          const res = await uploadFileSingle(file, "documents");
-          newGalleryData.push(res);
-        }
+        for (const file of newsGalleryImages)
+          newGalleryData.push(await uploadFileSingle(file, "documents"));
       }
       const finalGalleryData = [...existingGalleryImages, ...newGalleryData];
-
       const payload = {
         ...newsFormData,
-        title: finalTitle, // ใช้ Title ที่ผ่าน Logic
+        title: finalTitle,
         cover_image: coverData,
         gallery_images:
           newsFormData.type === "ข่าวสารทั่วไป" ? finalGalleryData : [],
@@ -279,18 +338,13 @@ export default function DashboardPage() {
           newsFormData.status === "published" ? "bg-green-500" : "bg-gray-400",
       };
 
-      if (isEditing && editNewsId) {
-        const { error } = await supabase
-          .from("news")
-          .update(payload)
-          .eq("id", editNewsId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
+      if (isEditing && editNewsId)
+        await supabase.from("news").update(payload).eq("id", editNewsId);
+      else
+        await supabase
           .from("news")
           .insert([{ ...payload, created_at: new Date() }]);
-        if (error) throw error;
-      }
+
       await Swal.fire({
         icon: "success",
         title: "สำเร็จ",
@@ -343,16 +397,10 @@ export default function DashboardPage() {
         status_color:
           formData.status === "published" ? "bg-green-500" : "bg-gray-400",
       };
-      if (isEditing && editDocId) {
-        const { error } = await supabase
-          .from("documents")
-          .update(payload)
-          .eq("id", editDocId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("documents").insert([payload]);
-        if (error) throw error;
-      }
+      if (isEditing && editDocId)
+        await supabase.from("documents").update(payload).eq("id", editDocId);
+      else await supabase.from("documents").insert([payload]);
+
       await Swal.fire({
         icon: "success",
         title: "สำเร็จ!",
@@ -376,16 +424,20 @@ export default function DashboardPage() {
   };
 
   // --- Actions ---
-  const handleToggleStatus = async (table: "documents" | "news", item: any) => {
+  const handleToggleStatus = async (
+    table: "documents" | "news" | "postal_systems",
+    item: any
+  ) => {
     const newStatus = item.status === "published" ? "draft" : "published";
     if (table === "documents")
       setDocList((prev) =>
         prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d))
       );
-    else
+    else if (table === "news")
       setNewsList((prev) =>
         prev.map((n) => (n.id === item.id ? { ...n, status: newStatus } : n))
       );
+
     const { error } = await supabase
       .from(table)
       .update({
@@ -394,25 +446,32 @@ export default function DashboardPage() {
           newStatus === "published" ? "bg-green-500" : "bg-gray-400",
       })
       .eq("id", item.id);
+
     if (error) {
       Swal.fire("Error", "เปลี่ยนสถานะไม่สำเร็จ", "error");
       if (table === "documents") fetchDocuments();
-      else fetchNews();
+      else if (table === "news") fetchNews();
+      else fetchSystems();
     } else
       Toast.fire({
         icon: "success",
         title: `สถานะ: ${newStatus === "published" ? "เผยแพร่" : "แบบร่าง"}`,
       });
+
+    if (table === "postal_systems") fetchSystems();
   };
 
-  const handleDeleteItem = async (table: "documents" | "news", id: number) => {
+  const handleDeleteItem = async (
+    table: "documents" | "news" | "postal_systems",
+    id: number
+  ) => {
     const result = await Swal.fire({
       title: "ยืนยันการลบ?",
       text: "การกระทำนี้ไม่สามารถย้อนกลับได้",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
-      confirmButtonText: "ลบข้อมูล",
+      confirmButtonText: "ลบ",
       cancelButtonText: "ยกเลิก",
     });
     if (result.isConfirmed) {
@@ -421,7 +480,8 @@ export default function DashboardPage() {
       else {
         await Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
         if (table === "documents") fetchDocuments();
-        else fetchNews();
+        else if (table === "news") fetchNews();
+        else fetchSystems();
       }
     }
   };
@@ -430,11 +490,11 @@ export default function DashboardPage() {
     if (selectedIds.length === 0) return;
     const result = await Swal.fire({
       title: `ลบ ${selectedIds.length} รายการ?`,
-      text: "ยืนยันการลบรายการที่เลือกทั้งหมด",
+      text: "ยืนยันการลบ",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
-      confirmButtonText: "ยืนยันการลบ",
+      confirmButtonText: "ยืนยัน",
       cancelButtonText: "ยกเลิก",
     });
     if (result.isConfirmed) {
@@ -467,10 +527,7 @@ export default function DashboardPage() {
       .in("id", selectedIds);
     if (error) Swal.fire("Error", error.message, "error");
     else {
-      Toast.fire({
-        icon: "success",
-        title: `เปลี่ยนสถานะเป็น ${newStatus} เรียบร้อยแล้ว`,
-      });
+      Toast.fire({ icon: "success", title: `เปลี่ยนสถานะเรียบร้อย` });
       if (table === "documents") fetchDocuments();
       else fetchNews();
       setSelectedIds([]);
@@ -526,6 +583,17 @@ export default function DashboardPage() {
     setNewsGalleryImages([]);
     setIsNewsModalOpen(true);
   };
+  const handleEditSystem = (item: any) => {
+    setIsEditing(true);
+    setEditSystemId(item.id);
+    setSystemFormData({
+      name: item.name,
+      url: item.url,
+      dept: item.dept,
+      status: item.status,
+    });
+    setIsSystemModalOpen(true);
+  };
 
   const handleViewDoc = (doc: any) => {
     setSelectedDoc(doc);
@@ -568,6 +636,12 @@ export default function DashboardPage() {
     setIsEditing(false);
     setEditNewsId(null);
   };
+  const resetSystemForm = () => {
+    setSystemFormData({ name: "", url: "", dept: "", status: "published" });
+    setIsEditing(false);
+    setEditSystemId(null);
+  };
+
   const resetFilter = () => {
     setSearchTerm("");
     setFilterDept("");
@@ -612,12 +686,20 @@ export default function DashboardPage() {
     const matchesSearch = news.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
+    // For News, reuse filterDept for "Type" filtering
     const matchesType = filterDept ? news.type === filterDept : true;
     const matchesStartDate = filterStartDate
       ? news.date >= filterStartDate
       : true;
     const matchesEndDate = filterEndDate ? news.date <= filterEndDate : true;
     return matchesSearch && matchesType && matchesStartDate && matchesEndDate;
+  });
+  const filteredSystems = systemList.filter((sys) => {
+    const matchesSearch = sys.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesDept = filterDept ? sys.dept === filterDept : true;
+    return matchesSearch && matchesDept;
   });
 
   if (isAuthChecking)
@@ -685,6 +767,7 @@ export default function DashboardPage() {
               </span>
             )}
           </button>
+
           <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-6 tracking-wider">
             {isSidebarOpen ? "Management" : "..."}
           </div>
@@ -734,6 +817,29 @@ export default function DashboardPage() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("systems")}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+              activeTab === "systems"
+                ? "bg-red-50 text-[#ED1C24]"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            <div
+              className={`transition-colors ${
+                activeTab === "systems"
+                  ? "text-[#ED1C24]"
+                  : "text-gray-400 group-hover:text-gray-600"
+              }`}
+            >
+              <SystemIcon />
+            </div>
+            {isSidebarOpen && (
+              <span className="font-bold text-sm whitespace-nowrap">
+                จัดการระบบงาน
+              </span>
+            )}
+          </button>
         </nav>
         <div className="p-4 border-t border-gray-100">
           <button
@@ -766,6 +872,8 @@ export default function DashboardPage() {
                 ? "จัดการบันทึกข้อความ"
                 : activeTab === "news"
                 ? "จัดการข่าวสาร"
+                : activeTab === "systems"
+                ? "จัดการระบบงานไปรษณีย์"
                 : "ภาพรวม (Overview)"}
             </h1>
           </div>
@@ -793,8 +901,151 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* --- SYSTEMS TAB (เพิ่มใหม่) --- */}
+          {activeTab === "systems" && (
+            <div className="space-y-6 animate-fade-in-up">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+                  <h2 className="text-lg font-bold text-gray-700 hidden md:block">
+                    รายการระบบงานทั้งหมด
+                  </h2>
+                  <button
+                    onClick={() => {
+                      resetSystemForm();
+                      setIsSystemModalOpen(true);
+                    }}
+                    className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#ED1C24] to-red-600 text-white rounded-xl shadow-lg shadow-red-200 text-sm font-bold hover:shadow-red-300 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                  >
+                    <PlusIcon /> เพิ่มระบบงาน
+                  </button>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                  <div className="relative group w-full md:w-1/3">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <SearchIcon />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="ค้นหาชื่อระบบงาน..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="w-full md:w-1/4">
+                    <select
+                      value={filterDept}
+                      onChange={(e) => setFilterDept(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                    >
+                      <option value="">ทุกส่วนงาน</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={resetFilter}
+                    className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 hover:text-gray-700 transition-colors text-sm font-bold whitespace-nowrap"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingData ? (
+                <div className="p-20 text-center flex flex-col items-center gap-4">
+                  <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
+                  <span className="text-gray-400 font-medium">
+                    กำลังโหลดข้อมูล...
+                  </span>
+                </div>
+              ) : filteredSystems.length === 0 ? (
+                <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                    <SystemIcon />
+                  </div>
+                  <p>ไม่พบรายการระบบงาน</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredSystems.map((sys) => (
+                    <div
+                      key={sys.id}
+                      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow relative group"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <span
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold border ${
+                            sys.status === "published"
+                              ? "bg-green-50 text-green-600 border-green-100"
+                              : "bg-gray-50 text-gray-500 border-gray-200"
+                          }`}
+                        >
+                          {sys.status === "published" ? "เผยแพร่" : "ซ่อน"}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditSystem(sys)}
+                            className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                          >
+                            <PencilIcon />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteItem("postal_systems", sys.id)
+                            }
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <TrashIcon />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleToggleStatus("postal_systems", sys)
+                            }
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              sys.status === "published"
+                                ? "text-green-500 hover:bg-green-50"
+                                : "text-gray-400 hover:bg-gray-100"
+                            }`}
+                          >
+                            {sys.status === "published" ? (
+                              <ToggleOnIcon />
+                            ) : (
+                              <ToggleOffIcon />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <h3
+                        className="font-bold text-gray-800 text-lg mb-1 truncate"
+                        title={sys.name}
+                      >
+                        {sys.name}
+                      </h3>
+                      <p className="text-xs text-gray-400 mb-4">
+                        {departmentFullNames[sys.dept] || sys.dept}
+                      </p>
+                      <a
+                        href={sys.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 text-sm text-[#ED1C24] font-medium hover:underline bg-red-50 p-2 rounded-lg w-fit"
+                      >
+                        <LinkIcon /> ไปที่ระบบ
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "circular" && (
             <div className="space-y-6 animate-fade-in-up">
+              {/* --- Document UI Code --- */}
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                   <h2 className="text-lg font-bold text-gray-700 hidden md:block">
@@ -812,7 +1063,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                   <div className="relative group w-full md:w-1/3">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#ED1C24] transition-colors">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                       <SearchIcon />
                     </div>
                     <input
@@ -920,7 +1171,7 @@ export default function DashboardPage() {
                           <th className="p-5 w-10 text-center">
                             <input
                               type="checkbox"
-                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                              className="w-4 h-4 text-red-600 rounded border-gray-300"
                               onChange={(e) => handleSelectAll(e, filteredDocs)}
                               checked={
                                 filteredDocs.length > 0 &&
@@ -964,7 +1215,7 @@ export default function DashboardPage() {
                             <td className="p-5 text-center">
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                                className="w-4 h-4 text-red-600 rounded border-gray-300 cursor-pointer"
                                 checked={selectedIds.includes(doc.id)}
                                 onChange={() => handleSelectOne(doc.id)}
                               />
@@ -1089,6 +1340,8 @@ export default function DashboardPage() {
                     <PlusIcon /> เพิ่มข่าวสาร
                   </button>
                 </div>
+
+                {/* --- Filter Bar For News (Added Back) --- */}
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                   <div className="relative group w-full md:w-1/3">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#ED1C24] transition-colors">
@@ -1137,6 +1390,8 @@ export default function DashboardPage() {
                     ล้างตัวกรอง
                   </button>
                 </div>
+
+                {/* --- Bulk Action For News (Added Back) --- */}
                 {selectedIds.length > 0 && (
                   <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
                     <div className="flex items-center gap-2">
@@ -1172,180 +1427,293 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
-              </div>
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
-                {isLoadingData ? (
-                  <div className="p-20 text-center flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
-                    <span className="text-gray-400 font-medium">
-                      กำลังโหลดข้อมูล...
-                    </span>
-                  </div>
-                ) : filteredNews.length === 0 ? (
-                  <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
-                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                      <NewsIcon />
+
+                {/* News Table/Grid */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                  {isLoadingData ? (
+                    <div className="p-20 text-center flex flex-col items-center gap-4">
+                      <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
+                      <span className="text-gray-400 font-medium">
+                        กำลังโหลดข้อมูล...
+                      </span>
                     </div>
-                    <p>ไม่พบรายการข่าวสาร</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
-                        <tr>
-                          <th className="p-5 w-10 text-center">
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
-                              onChange={(e) => handleSelectAll(e, filteredNews)}
-                              checked={
-                                filteredNews.length > 0 &&
-                                selectedIds.length === filteredNews.length
-                              }
-                            />
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-24 pl-2">
-                            รูปปก
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32">
-                            สถานะ
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider">
-                            หัวข้อข่าว
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
-                            ประเภท
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
-                            วันที่
-                          </th>
-                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider text-right w-36 pr-8">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {filteredNews.map((item) => (
-                          <tr
-                            key={item.id}
-                            className={`group transition-colors ${
-                              selectedIds.includes(item.id)
-                                ? "bg-red-50/40"
-                                : "hover:bg-red-50/30"
-                            }`}
-                          >
-                            <td className="p-5 text-center">
+                  ) : filteredNews.length === 0 ? (
+                    <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
+                      <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                        <NewsIcon />
+                      </div>
+                      <p>ไม่พบรายการข่าวสาร</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
+                          <tr>
+                            <th className="p-5 w-10 text-center">
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
-                                checked={selectedIds.includes(item.id)}
-                                onChange={() => handleSelectOne(item.id)}
-                              />
-                            </td>
-                            <td className="p-5 pl-2">
-                              <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-200">
-                                {item.cover_image?.url ? (
-                                  <img
-                                    src={item.cover_image.url}
-                                    alt="cover"
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                    <FileIcon />
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="p-5">
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                                  item.status === "published"
-                                    ? "bg-green-50 text-green-600 border-green-100"
-                                    : "bg-gray-50 text-gray-500 border-gray-200"
-                                }`}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    item.status === "published"
-                                      ? "bg-green-500"
-                                      : "bg-gray-400"
-                                  }`}
-                                ></span>
-                                {item.status === "published"
-                                  ? "Published"
-                                  : "Draft"}
-                              </span>
-                            </td>
-                            <td className="p-5">
-                              <div className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
-                                {item.title}
-                              </div>
-                              <div className="text-xs text-gray-500 line-clamp-1">
-                                {item.details}
-                              </div>
-                            </td>
-                            <td className="p-5">
-                              <span
-                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
-                                  item.type
-                                )}`}
-                              >
-                                {item.type === "ข่าวสารทั่วไป"
-                                  ? "ข่าวทั่วไป"
-                                  : "ประชาสัมพันธ์"}
-                              </span>
-                            </td>
-                            <td className="p-5 text-sm text-gray-500 font-medium">
-                              {formatThaiDate(item.date)}
-                            </td>
-                            <td className="p-5 pr-8 text-right flex justify-end gap-2 items-center">
-                              <button
-                                onClick={() => handleToggleStatus("news", item)}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                                  item.status === "published"
-                                    ? "text-green-500 hover:bg-green-50"
-                                    : "text-gray-400 hover:bg-gray-100"
-                                }`}
-                              >
-                                {item.status === "published" ? (
-                                  <ToggleOnIcon />
-                                ) : (
-                                  <ToggleOffIcon />
-                                )}
-                              </button>
-                              <button
-                                onClick={() => handleEditNews(item)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all"
-                              >
-                                <PencilIcon />
-                              </button>
-                              <button
-                                onClick={() => handleViewNews(item)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
-                              >
-                                <EyeIcon />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteItem("news", item.id)
+                                className="w-4 h-4 text-red-600 rounded border-gray-300"
+                                onChange={(e) =>
+                                  handleSelectAll(e, filteredNews)
                                 }
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                              >
-                                <TrashIcon />
-                              </button>
-                            </td>
+                                checked={
+                                  filteredNews.length > 0 &&
+                                  selectedIds.length === filteredNews.length
+                                }
+                              />
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-24 pl-2">
+                              รูปปก
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32">
+                              สถานะ
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider">
+                              หัวข้อข่าว
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
+                              ประเภท
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
+                              วันที่
+                            </th>
+                            <th className="p-5 text-xs font-extrabold uppercase tracking-wider text-right w-36 pr-8">
+                              Action
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {filteredNews.map((item) => (
+                            <tr
+                              key={item.id}
+                              className={`group transition-colors ${
+                                selectedIds.includes(item.id)
+                                  ? "bg-red-50/40"
+                                  : "hover:bg-red-50/30"
+                              }`}
+                            >
+                              <td className="p-5 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 text-red-600 rounded border-gray-300 cursor-pointer"
+                                  checked={selectedIds.includes(item.id)}
+                                  onChange={() => handleSelectOne(item.id)}
+                                />
+                              </td>
+                              <td className="p-5 pl-2">
+                                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-200">
+                                  {item.cover_image?.url ? (
+                                    <img
+                                      src={item.cover_image.url}
+                                      alt="cover"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                      <FileIcon />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-5">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                                    item.status === "published"
+                                      ? "bg-green-50 text-green-600 border-green-100"
+                                      : "bg-gray-50 text-gray-500 border-gray-200"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      item.status === "published"
+                                        ? "bg-green-500"
+                                        : "bg-gray-400"
+                                    }`}
+                                  ></span>
+                                  {item.status === "published"
+                                    ? "Published"
+                                    : "Draft"}
+                                </span>
+                              </td>
+                              <td className="p-5">
+                                <div className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
+                                  {item.title}
+                                </div>
+                                <div className="text-xs text-gray-500 line-clamp-1">
+                                  {item.details}
+                                </div>
+                              </td>
+                              <td className="p-5">
+                                <span
+                                  className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
+                                    item.type
+                                  )}`}
+                                >
+                                  {item.type === "ข่าวสารทั่วไป"
+                                    ? "ข่าวทั่วไป"
+                                    : "ประชาสัมพันธ์"}
+                                </span>
+                              </td>
+                              <td className="p-5 text-sm text-gray-500 font-medium">
+                                {formatThaiDate(item.date)}
+                              </td>
+                              <td className="p-5 pr-8 text-right flex justify-end gap-2 items-center">
+                                <button
+                                  onClick={() =>
+                                    handleToggleStatus("news", item)
+                                  }
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                                    item.status === "published"
+                                      ? "text-green-500 hover:bg-green-50"
+                                      : "text-gray-400 hover:bg-gray-100"
+                                  }`}
+                                >
+                                  {item.status === "published" ? (
+                                    <ToggleOnIcon />
+                                  ) : (
+                                    <ToggleOffIcon />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleEditNews(item)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all"
+                                >
+                                  <PencilIcon />
+                                </button>
+                                <button
+                                  onClick={() => handleViewNews(item)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                                >
+                                  <EyeIcon />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteItem("news", item.id)
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                  <TrashIcon />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* --- ADD/EDIT SYSTEM MODAL (New) --- */}
+      {isSystemModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+            onClick={() => setIsSystemModalOpen(false)}
+          ></div>
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-3xl">
+              <h3 className="text-xl font-black text-gray-800">
+                {isEditing ? "แก้ไขระบบงาน" : "เพิ่มระบบงาน"}
+              </h3>
+              <button
+                onClick={() => setIsSystemModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleSystemSubmit} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">
+                  ชื่อระบบงาน
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น ระบบติดตามพัสดุภายใน"
+                  value={systemFormData.name}
+                  onChange={(e) =>
+                    setSystemFormData({
+                      ...systemFormData,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">
+                  URL (ลิงก์เข้าระบบ)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={systemFormData.url}
+                  onChange={(e) =>
+                    setSystemFormData({
+                      ...systemFormData,
+                      url: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">
+                  ส่วนงานเจ้าของระบบ
+                </label>
+                <select
+                  value={systemFormData.dept}
+                  onChange={(e) =>
+                    setSystemFormData({
+                      ...systemFormData,
+                      dept: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                  required
+                >
+                  <option value="">-- เลือกส่วนงาน --</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d} - {departmentFullNames[d]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">สถานะ</label>
+                <select
+                  value={systemFormData.status}
+                  onChange={(e) =>
+                    setSystemFormData({
+                      ...systemFormData,
+                      status: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                >
+                  <option value="published">เผยแพร่</option>
+                  <option value="draft">ซ่อน (Draft)</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-[#ED1C24] text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-200"
+              >
+                {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* --- ADD/EDIT DOCUMENT MODAL --- */}
       {isAddModalOpen && (
@@ -1360,11 +1728,6 @@ export default function DashboardPage() {
                 <h3 className="text-xl font-black text-gray-800">
                   {isEditing ? "แก้ไขบันทึกข้อความ" : "เพิ่มบันทึกข้อความ"}
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {isEditing
-                    ? "แก้ไขรายละเอียดเอกสาร"
-                    : "กรอกรายละเอียดเอกสารเพื่อเผยแพร่ในระบบ"}
-                </p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1378,7 +1741,7 @@ export default function DashboardPage() {
               className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8"
             >
               <section className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                   ข้อมูลทั่วไป
                 </h4>
                 <div className="grid grid-cols-2 gap-6">
@@ -1392,7 +1755,7 @@ export default function DashboardPage() {
                       required
                       value={formData.book_no}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1405,7 +1768,7 @@ export default function DashboardPage() {
                       required
                       value={formData.date}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     />
                   </div>
                 </div>
@@ -1419,7 +1782,7 @@ export default function DashboardPage() {
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-6">
@@ -1432,7 +1795,7 @@ export default function DashboardPage() {
                       required
                       value={formData.dept}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     >
                       <option value="">-- เลือกส่วนงาน --</option>
                       {departments.map((d) => (
@@ -1450,7 +1813,7 @@ export default function DashboardPage() {
                       name="type"
                       value={formData.type}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     >
                       <option value="บันทึกข้อความ">บันทึกข้อความ</option>
                       <option value="ประกาศ">ประกาศ</option>
@@ -1468,12 +1831,12 @@ export default function DashboardPage() {
                     rows={3}
                     value={formData.details}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none resize-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none resize-none"
                   ></textarea>
                 </div>
               </section>
               <section className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                   ไฟล์แนบ
                 </h4>
                 <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 transition-all cursor-pointer relative group">
@@ -1544,18 +1907,18 @@ export default function DashboardPage() {
                         n[idx].name = e.target.value;
                         setLinkList(n);
                       }}
-                      className="w-1/3 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
+                      className="w-1/3 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none"
                     />
                     <input
                       type="text"
-                      placeholder="URL (https://...)"
+                      placeholder="URL"
                       value={link.url}
                       onChange={(e) => {
                         const n = [...linkList];
                         n[idx].url = e.target.value;
                         setLinkList(n);
                       }}
-                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-red-100 focus:border-red-500 outline-none"
+                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none"
                     />
                     <button
                       type="button"
@@ -1564,7 +1927,7 @@ export default function DashboardPage() {
                         n.splice(idx, 1);
                         setLinkList(n);
                       }}
-                      className="text-red-400 hover:text-red-600 p-2 bg-red-50 rounded-lg"
+                      className="text-red-400 p-2"
                     >
                       ✕
                     </button>
@@ -1665,7 +2028,7 @@ export default function DashboardPage() {
                           type: e.target.value,
                         })
                       }
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     >
                       <option value="ข่าวประชาสัมพันธ์">
                         ข่าวประชาสัมพันธ์
@@ -1686,7 +2049,7 @@ export default function DashboardPage() {
                           date: e.target.value,
                         })
                       }
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                     />
                   </div>
                 </div>
@@ -1704,9 +2067,9 @@ export default function DashboardPage() {
                       })
                     }
                     disabled={newsFormData.type === "ข่าวประชาสัมพันธ์"}
-                    className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none ${
+                    className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none ${
                       newsFormData.type === "ข่าวประชาสัมพันธ์"
-                        ? "opacity-50 cursor-not-allowed"
+                        ? "opacity-50"
                         : ""
                     }`}
                     placeholder={
@@ -1729,7 +2092,7 @@ export default function DashboardPage() {
                         details: e.target.value,
                       })
                     }
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none resize-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none resize-none"
                   ></textarea>
                 </div>
               </section>
@@ -1739,9 +2102,7 @@ export default function DashboardPage() {
                 </h4>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    {newsFormData.type === "ข่าวประชาสัมพันธ์"
-                      ? "รูปภาพ"
-                      : "รูปปก"}
+                    รูปปก
                   </label>
                   {newsCoverImage ? (
                     <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
@@ -2208,7 +2569,7 @@ const SettingIcon = ({ size = 20 }: { size?: number }) => (
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
-      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z"
     />
     <path
       strokeLinecap="round"
@@ -2435,6 +2796,22 @@ const ToggleOffIcon = () => (
       strokeLinecap="round"
       strokeLinejoin="round"
       d="M6 18L18 6M6 6l12 12"
+    />
+  </svg>
+);
+const SystemIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
     />
   </svg>
 );
