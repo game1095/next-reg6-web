@@ -261,7 +261,7 @@ export default function Home() {
 
     e.preventDefault();
     if (item.name === "ติดต่อเรา") setIsContactOpen(true);
-    else if (item.name === "Admin") {
+    else if (item.name === "เข้าสู่ระบบ") {
       session ? router.push("/dashboard") : setIsLoginOpen(true);
     } else if (item.href.startsWith("#")) {
       const targetId = item.href.substring(1);
@@ -313,7 +313,7 @@ export default function Home() {
       ],
     },
     { name: "ติดต่อเรา", href: "#", active: false },
-    { name: "Admin", href: "#", active: false },
+    { name: "เข้าสู่ระบบ", href: "#", active: false },
   ];
 
   const contactList = [
