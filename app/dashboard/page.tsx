@@ -12,6 +12,9 @@ export default function DashboardPage() {
   // --- Auth & UI States ---
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [userEmail, setUserEmail] = useState("");
+  const [userDept, setUserDept] = useState("");
+  const [isDeptSelectionOpen, setIsDeptSelectionOpen] = useState(false);
+
   const [activeTab, setActiveTab] = useState("circular"); // circular, news, systems, overview
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -38,6 +41,11 @@ export default function DashboardPage() {
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [selectedNews, setSelectedNews] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Progress Bar States (NEW) ---
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentTask, setCurrentTask] = useState("");
 
   // --- Edit States ---
   const [isEditing, setIsEditing] = useState(false);
@@ -153,13 +161,17 @@ export default function DashboardPage() {
       }
       setUserEmail(user.email || "Admin");
       setIsAuthChecking(false);
-
-      if (activeTab === "circular") fetchDocuments();
-      else if (activeTab === "news") fetchNews();
-      else if (activeTab === "systems") fetchSystems();
+      if (!userDept) setIsDeptSelectionOpen(true);
     };
     init();
-  }, [router, activeTab]);
+  }, [router]);
+
+  useEffect(() => {
+    if (!userDept) return;
+    if (activeTab === "circular") fetchDocuments();
+    else if (activeTab === "news") fetchNews();
+    else if (activeTab === "systems") fetchSystems();
+  }, [activeTab, userDept]);
 
   useEffect(() => {
     resetFilter();
@@ -172,11 +184,13 @@ export default function DashboardPage() {
     const { data, error } = await supabase
       .from("documents")
       .select("*")
+      .eq("dept", userDept)
       .order("id", { ascending: false });
     if (error) console.error(error);
     else setDocList(data || []);
     setIsLoadingData(false);
   };
+
   const fetchNews = async () => {
     setIsLoadingData(true);
     const { data, error } = await supabase
@@ -187,11 +201,13 @@ export default function DashboardPage() {
     else setNewsList(data || []);
     setIsLoadingData(false);
   };
+
   const fetchSystems = async () => {
     setIsLoadingData(true);
     const { data, error } = await supabase
       .from("postal_systems")
       .select("*")
+      .eq("dept", userDept)
       .order("id", { ascending: false });
     if (error) console.error(error);
     else setSystemList(data || []);
@@ -200,6 +216,7 @@ export default function DashboardPage() {
 
   const uploadFileSingle = async (file: File, bucket: string = "documents") => {
     let fileToUpload = file;
+    // Compress Image if needed
     if (file.type.startsWith("image/")) {
       try {
         const options = {
@@ -216,9 +233,7 @@ export default function DashboardPage() {
       }
     }
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 10)}.${fileExt}`;
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
     const { error } = await supabase.storage
       .from(bucket)
       .upload(fileName, fileToUpload);
@@ -231,28 +246,11 @@ export default function DashboardPage() {
     };
   };
 
-  const uploadFilesToStorage = async () => {
-    const uploadedFiles = [];
-    for (const file of selectedFiles) {
-      try {
-        const result = await uploadFileSingle(file, "documents");
-        uploadedFiles.push(result);
-      } catch (error: any) {
-        Swal.fire({
-          icon: "error",
-          title: "อัปโหลดล้มเหลว",
-          text: `ไฟล์ ${file.name}: ${error.message}`,
-          confirmButtonColor: "#ED1C24",
-        });
-      }
-    }
-    return uploadedFiles;
-  };
-
   // --- Handlers ---
+
   const handleSystemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!systemFormData.name || !systemFormData.url || !systemFormData.dept) {
+    if (!systemFormData.name || !systemFormData.url || !userDept) {
       Swal.fire({
         icon: "warning",
         title: "ข้อมูลไม่ครบ",
@@ -261,15 +259,24 @@ export default function DashboardPage() {
       });
       return;
     }
+
+    // Start Progress (Fake for System as no files)
     setIsSubmitting(true);
+    setShowProgressModal(true);
+    setUploadProgress(10);
+    setCurrentTask("กำลังบันทึกข้อมูล...");
+
     try {
+      setUploadProgress(50);
       const payload = {
         ...systemFormData,
+        dept: userDept,
         status_color:
           systemFormData.status === "published"
             ? "bg-green-500"
             : "bg-gray-400",
       };
+
       if (isEditing && editSystemId) {
         await supabase
           .from("postal_systems")
@@ -278,6 +285,11 @@ export default function DashboardPage() {
       } else {
         await supabase.from("postal_systems").insert([payload]);
       }
+
+      setUploadProgress(100);
+      setCurrentTask("เสร็จสิ้น!");
+      await new Promise((r) => setTimeout(r, 500)); // Show 100% briefly
+
       Toast.fire({ icon: "success", title: "บันทึกระบบงานเรียบร้อย" });
       setIsSystemModalOpen(false);
       resetSystemForm();
@@ -286,24 +298,22 @@ export default function DashboardPage() {
       Swal.fire({ icon: "error", title: "Error", text: error.message });
     } finally {
       setIsSubmitting(false);
+      setShowProgressModal(false);
     }
   };
 
   const handleNewsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let finalTitle = newsFormData.title;
-    if (newsFormData.type === "ข่าวสารทั่วไป") {
-      if (!finalTitle.trim()) {
-        Swal.fire({
-          icon: "warning",
-          title: "ข้อมูลไม่ครบถ้วน",
-          text: "กรุณากรอกหัวข้อข่าว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#f59e0b",
-        });
-        return;
-      }
-    } else {
+    if (newsFormData.type === "ข่าวสารทั่วไป" && !finalTitle.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณากรอกหัวข้อข่าว",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    } else if (newsFormData.type !== "ข่าวสารทั่วไป") {
       finalTitle = `ประชาสัมพันธ์วันที่ ${formatThaiDate(newsFormData.date)}`;
     }
     if (!newsFormData.details.trim()) {
@@ -311,23 +321,56 @@ export default function DashboardPage() {
         icon: "warning",
         title: "ข้อมูลไม่ครบถ้วน",
         text: "กรุณากรอกรายละเอียด",
-        confirmButtonText: "ตกลง",
         confirmButtonColor: "#f59e0b",
       });
       return;
     }
 
     setIsSubmitting(true);
+    setShowProgressModal(true);
+    setUploadProgress(0);
+    setCurrentTask("กำลังเตรียมข้อมูล...");
+
     try {
+      // Calculate Total Steps: 1 (Init) + Cover(1) + Gallery(N) + 1 (Save DB)
+      const hasCover = !!newsCoverImage;
+      const galleryCount = newsGalleryImages.length;
+      const totalSteps = 1 + (hasCover ? 1 : 0) + galleryCount + 1;
+      let stepCount = 0;
+
+      const updateProgress = (task: string) => {
+        stepCount++;
+        const pct = (stepCount / totalSteps) * 100;
+        setUploadProgress(pct);
+        setCurrentTask(task);
+      };
+
+      // Step 1: Init
+      updateProgress("เริ่มกระบวนการอัปโหลด...");
+
+      // Step 2: Cover Image
       let coverData = existingCoverImage;
-      if (newsCoverImage)
+      if (newsCoverImage) {
+        setCurrentTask("กำลังอัปโหลดรูปปก...");
         coverData = await uploadFileSingle(newsCoverImage, "documents");
+        updateProgress("อัปโหลดรูปปกเสร็จสิ้น");
+      }
+
+      // Step 3: Gallery Images
       const newGalleryData = [];
-      if (newsFormData.type === "ข่าวสารทั่วไป") {
-        for (const file of newsGalleryImages)
-          newGalleryData.push(await uploadFileSingle(file, "documents"));
+      if (newsFormData.type === "ข่าวสารทั่วไป" && galleryCount > 0) {
+        for (let i = 0; i < galleryCount; i++) {
+          const file = newsGalleryImages[i];
+          setCurrentTask(`กำลังอัปโหลดรูปประกอบ (${i + 1}/${galleryCount})...`);
+          const uploaded = await uploadFileSingle(file, "documents");
+          newGalleryData.push(uploaded);
+          updateProgress(`รูปประกอบ ${i + 1} เรียบร้อย`);
+        }
       }
       const finalGalleryData = [...existingGalleryImages, ...newGalleryData];
+
+      // Step 4: Save to DB
+      setCurrentTask("กำลังบันทึกลงฐานข้อมูล...");
       const payload = {
         ...newsFormData,
         title: finalTitle,
@@ -344,6 +387,9 @@ export default function DashboardPage() {
         await supabase
           .from("news")
           .insert([{ ...payload, created_at: new Date() }]);
+
+      updateProgress("เสร็จสิ้น!");
+      await new Promise((r) => setTimeout(r, 500));
 
       await Swal.fire({
         icon: "success",
@@ -363,6 +409,7 @@ export default function DashboardPage() {
       });
     } finally {
       setIsSubmitting(false);
+      setShowProgressModal(false);
     }
   };
 
@@ -372,34 +419,79 @@ export default function DashboardPage() {
       !formData.book_no.trim() ||
       !formData.title.trim() ||
       !formData.date ||
-      !formData.dept ||
+      !userDept ||
       !formData.details.trim()
     ) {
       Swal.fire({
         icon: "warning",
         title: "ข้อมูลไม่ครบถ้วน",
         text: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
-        confirmButtonText: "ตกลง",
         confirmButtonColor: "#f59e0b",
       });
       return;
     }
+
     setIsSubmitting(true);
+    setShowProgressModal(true);
+    setUploadProgress(0);
+    setCurrentTask("กำลังเตรียมข้อมูล...");
+
     try {
-      const newUploadedFiles = await uploadFilesToStorage();
+      // Logic for Documents: Total Files + 1 (Save DB)
+      const totalFiles = selectedFiles.length;
+      const totalSteps = totalFiles + 1;
+      let stepCount = 0;
+
+      const updateProgress = (pct: number, task: string) => {
+        setUploadProgress(pct);
+        setCurrentTask(task);
+      };
+
+      const newUploadedFiles = [];
+      for (let i = 0; i < totalFiles; i++) {
+        const file = selectedFiles[i];
+        // Calculate precise progress based on loop index
+        const startPct = (i / totalSteps) * 100;
+        updateProgress(
+          startPct,
+          `กำลังอัปโหลดไฟล์: ${file.name} (${i + 1}/${totalFiles})`,
+        );
+
+        try {
+          const result = await uploadFileSingle(file, "documents");
+          newUploadedFiles.push(result);
+        } catch (err: any) {
+          console.error(`Failed to upload ${file.name}`, err);
+          // Continue even if one fails? Or break? Let's notify but continue
+          Toast.fire({ icon: "error", title: `Failed: ${file.name}` });
+        }
+
+        stepCount++;
+      }
+
       const finalFiles = isEditing
         ? [...existingFiles, ...newUploadedFiles]
         : newUploadedFiles;
+
+      // Save to DB
+      const dbStartPct = (stepCount / totalSteps) * 100;
+      updateProgress(dbStartPct, "กำลังบันทึกลงฐานข้อมูล...");
+
       const payload = {
         ...formData,
+        dept: userDept,
         links: linkList,
         files: finalFiles,
         status_color:
           formData.status === "published" ? "bg-green-500" : "bg-gray-400",
       };
+
       if (isEditing && editDocId)
         await supabase.from("documents").update(payload).eq("id", editDocId);
       else await supabase.from("documents").insert([payload]);
+
+      updateProgress(100, "เสร็จสิ้น!");
+      await new Promise((r) => setTimeout(r, 500));
 
       await Swal.fire({
         icon: "success",
@@ -420,22 +512,27 @@ export default function DashboardPage() {
       });
     } finally {
       setIsSubmitting(false);
+      setShowProgressModal(false);
     }
   };
 
-  // --- Actions ---
+  // --- Actions & Utils (Existing Code) ---
   const handleToggleStatus = async (
     table: "documents" | "news" | "postal_systems",
-    item: any
+    item: any,
   ) => {
     const newStatus = item.status === "published" ? "draft" : "published";
     if (table === "documents")
       setDocList((prev) =>
-        prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d))
+        prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d)),
       );
     else if (table === "news")
       setNewsList((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, status: newStatus } : n))
+        prev.map((n) => (n.id === item.id ? { ...n, status: newStatus } : n)),
+      );
+    else if (table === "postal_systems")
+      setSystemList((prev) =>
+        prev.map((s) => (s.id === item.id ? { ...s, status: newStatus } : s)),
       );
 
     const { error } = await supabase
@@ -446,7 +543,6 @@ export default function DashboardPage() {
           newStatus === "published" ? "bg-green-500" : "bg-gray-400",
       })
       .eq("id", item.id);
-
     if (error) {
       Swal.fire("Error", "เปลี่ยนสถานะไม่สำเร็จ", "error");
       if (table === "documents") fetchDocuments();
@@ -457,13 +553,11 @@ export default function DashboardPage() {
         icon: "success",
         title: `สถานะ: ${newStatus === "published" ? "เผยแพร่" : "แบบร่าง"}`,
       });
-
-    if (table === "postal_systems") fetchSystems();
   };
 
   const handleDeleteItem = async (
     table: "documents" | "news" | "postal_systems",
-    id: number
+    id: number,
   ) => {
     const result = await Swal.fire({
       title: "ยืนยันการลบ?",
@@ -514,7 +608,7 @@ export default function DashboardPage() {
 
   const handleBulkStatusChange = async (
     table: "documents" | "news",
-    newStatus: "published" | "draft"
+    newStatus: "published" | "draft",
   ) => {
     if (selectedIds.length === 0) return;
     const { error } = await supabase
@@ -534,10 +628,9 @@ export default function DashboardPage() {
     }
   };
 
-  // --- Utils ---
   const handleSelectAll = (
     e: React.ChangeEvent<HTMLInputElement>,
-    list: any[]
+    list: any[],
   ) => {
     e.target.checked
       ? setSelectedIds(list.map((i) => i.id))
@@ -609,7 +702,7 @@ export default function DashboardPage() {
       title: "",
       book_no: "",
       date: getTodayDate(),
-      dept: "",
+      dept: userDept,
       type: "บันทึกข้อความ",
       details: "",
       phone: "",
@@ -637,11 +730,15 @@ export default function DashboardPage() {
     setEditNewsId(null);
   };
   const resetSystemForm = () => {
-    setSystemFormData({ name: "", url: "", dept: "", status: "published" });
+    setSystemFormData({
+      name: "",
+      url: "",
+      dept: userDept,
+      status: "published",
+    });
     setIsEditing(false);
     setEditSystemId(null);
   };
-
   const resetFilter = () => {
     setSearchTerm("");
     setFilterDept("");
@@ -651,7 +748,7 @@ export default function DashboardPage() {
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -675,18 +772,16 @@ export default function DashboardPage() {
     const matchesSearch =
       doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.book_no.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = filterDept ? doc.dept === filterDept : true;
     const matchesStartDate = filterStartDate
       ? doc.date >= filterStartDate
       : true;
     const matchesEndDate = filterEndDate ? doc.date <= filterEndDate : true;
-    return matchesSearch && matchesDept && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesStartDate && matchesEndDate;
   });
   const filteredNews = newsList.filter((news) => {
     const matchesSearch = news.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    // For News, reuse filterDept for "Type" filtering
     const matchesType = filterDept ? news.type === filterDept : true;
     const matchesStartDate = filterStartDate
       ? news.date >= filterStartDate
@@ -694,13 +789,9 @@ export default function DashboardPage() {
     const matchesEndDate = filterEndDate ? news.date <= filterEndDate : true;
     return matchesSearch && matchesType && matchesStartDate && matchesEndDate;
   });
-  const filteredSystems = systemList.filter((sys) => {
-    const matchesSearch = sys.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesDept = filterDept ? sys.dept === filterDept : true;
-    return matchesSearch && matchesDept;
-  });
+  const filteredSystems = systemList.filter((sys) =>
+    sys.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   if (isAuthChecking)
     return (
@@ -710,11 +801,128 @@ export default function DashboardPage() {
     );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-gray-800 font-sans selection:bg-red-100 selection:text-red-600">
+    <div className="min-h-screen bg-[#F8FAFC] text-gray-800 font-sans selection:bg-red-100 selection:text-red-600 relative">
+      {/* --- PROGRESS BAR MODAL OVERLAY --- */}
+      {showProgressModal && (
+        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl flex flex-col items-center text-center space-y-6">
+            <div className="relative w-20 h-20">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="#f3f4f6"
+                  strokeWidth="8"
+                  fill="none"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="#ED1C24"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeDasharray="226"
+                  strokeDashoffset={226 - (226 * uploadProgress) / 100}
+                  className="transition-all duration-300 ease-out"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center font-black text-xl text-gray-700">
+                {Math.round(uploadProgress)}%
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                กำลังดำเนินการ
+              </h3>
+              <p className="text-gray-500 text-sm animate-pulse">
+                {currentTask}
+              </p>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#ED1C24] to-orange-500 transition-all duration-300 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- DEPT SELECTION --- */}
+      {isDeptSelectionOpen && (
+        <div className="fixed inset-0 z-[200] bg-gradient-to-br from-gray-50 via-white to-red-50 flex flex-col items-center justify-center p-6 animate-fade-in-up">
+          <div className="absolute inset-0 z-0 opacity-40 bg-[radial-gradient(#ED1C24_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none"></div>
+          <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
+            <div className="mb-10 text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-24 h-24 bg-white text-[#ED1C24] rounded-full shadow-2xl shadow-red-200 mb-2 border-4 border-red-50">
+                <UserIcon size={48} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">
+                  Welcome to Dashboard
+                </p>
+                <h1 className="text-4xl md:text-5xl font-black text-gray-800 tracking-tight">
+                  สวัสดี, <span className="text-[#ED1C24]">{userEmail}</span>
+                </h1>
+              </div>
+              <p className="text-lg text-gray-500 max-w-lg mx-auto leading-relaxed">
+                กรุณาเลือก{" "}
+                <span className="font-bold text-gray-800">ส่วนงาน</span>{" "}
+                ที่คุณต้องการดำเนินการเพื่อเข้าสู่ระบบจัดการข้อมูล
+              </p>
+            </div>
+            <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {departments.map((dept) => (
+                <button
+                  key={dept}
+                  onClick={() => {
+                    setUserDept(dept);
+                    setIsDeptSelectionOpen(false);
+                  }}
+                  className="group relative flex flex-col items-center justify-center p-8 bg-white border border-gray-100 rounded-3xl shadow-sm hover:shadow-2xl hover:shadow-red-100/50 hover:border-red-100 transition-all duration-300 transform hover:-translate-y-2 overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-8 h-8 rounded-full bg-red-50 text-[#ED1C24] flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <span className="text-4xl font-black text-gray-300 mb-3 group-hover:text-[#ED1C24] group-hover:scale-110 transition-all duration-300">
+                    {dept}
+                  </span>
+                  <span className="text-xs text-center text-gray-400 font-bold group-hover:text-gray-600 transition-colors line-clamp-2">
+                    {departmentFullNames[dept]}
+                  </span>
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#ED1C24] to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="mt-12 text-sm font-bold text-gray-400 hover:text-[#ED1C24] transition-colors flex items-center gap-2"
+            >
+              <LogoutIcon /> ออกจากระบบ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- SIDEBAR --- */}
       <aside
-        className={`fixed left-0 top-0 h-full bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ${
-          isSidebarOpen ? "w-72" : "w-20"
-        } hidden md:flex flex-col`}
+        className={`fixed left-0 top-0 h-full bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ${isSidebarOpen ? "w-72" : "w-20"} hidden md:flex flex-col`}
       >
         <div className="h-20 flex items-center justify-center border-b border-gray-100">
           <div className="flex items-center gap-3 font-black text-xl text-gray-800 tracking-tight">
@@ -746,18 +954,10 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => setActiveTab("overview")}
-            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-              activeTab === "overview"
-                ? "bg-red-50 text-[#ED1C24]"
-                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === "overview" ? "bg-red-50 text-[#ED1C24]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             <div
-              className={`transition-colors ${
-                activeTab === "overview"
-                  ? "text-[#ED1C24]"
-                  : "text-gray-400 group-hover:text-gray-600"
-              }`}
+              className={`transition-colors ${activeTab === "overview" ? "text-[#ED1C24]" : "text-gray-400 group-hover:text-gray-600"}`}
             >
               <HomeIcon />
             </div>
@@ -767,24 +967,15 @@ export default function DashboardPage() {
               </span>
             )}
           </button>
-
           <div className="text-xs font-bold text-gray-400 uppercase px-4 py-2 mt-6 tracking-wider">
             {isSidebarOpen ? "Management" : "..."}
           </div>
           <button
             onClick={() => setActiveTab("circular")}
-            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-              activeTab === "circular"
-                ? "bg-red-50 text-[#ED1C24]"
-                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === "circular" ? "bg-red-50 text-[#ED1C24]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             <div
-              className={`transition-colors ${
-                activeTab === "circular"
-                  ? "text-[#ED1C24]"
-                  : "text-gray-400 group-hover:text-gray-600"
-              }`}
+              className={`transition-colors ${activeTab === "circular" ? "text-[#ED1C24]" : "text-gray-400 group-hover:text-gray-600"}`}
             >
               <DocIcon />
             </div>
@@ -796,18 +987,10 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab("news")}
-            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-              activeTab === "news"
-                ? "bg-red-50 text-[#ED1C24]"
-                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === "news" ? "bg-red-50 text-[#ED1C24]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             <div
-              className={`transition-colors ${
-                activeTab === "news"
-                  ? "text-[#ED1C24]"
-                  : "text-gray-400 group-hover:text-gray-600"
-              }`}
+              className={`transition-colors ${activeTab === "news" ? "text-[#ED1C24]" : "text-gray-400 group-hover:text-gray-600"}`}
             >
               <NewsIcon />
             </div>
@@ -819,18 +1002,10 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab("systems")}
-            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-              activeTab === "systems"
-                ? "bg-red-50 text-[#ED1C24]"
-                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === "systems" ? "bg-red-50 text-[#ED1C24]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             <div
-              className={`transition-colors ${
-                activeTab === "systems"
-                  ? "text-[#ED1C24]"
-                  : "text-gray-400 group-hover:text-gray-600"
-              }`}
+              className={`transition-colors ${activeTab === "systems" ? "text-[#ED1C24]" : "text-gray-400 group-hover:text-gray-600"}`}
             >
               <SystemIcon />
             </div>
@@ -854,10 +1029,9 @@ export default function DashboardPage() {
         </div>
       </aside>
 
+      {/* --- MAIN CONTENT --- */}
       <main
-        className={`transition-all duration-300 ${
-          isSidebarOpen ? "md:ml-72" : "md:ml-20"
-        } min-h-screen flex flex-col`}
+        className={`transition-all duration-300 ${isSidebarOpen ? "md:ml-72" : "md:ml-20"} min-h-screen flex flex-col`}
       >
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30 px-8 flex items-center justify-between shadow-sm shadow-gray-100/50">
           <div className="flex items-center gap-4">
@@ -871,17 +1045,25 @@ export default function DashboardPage() {
               {activeTab === "circular"
                 ? "จัดการบันทึกข้อความ"
                 : activeTab === "news"
-                ? "จัดการข่าวสาร"
-                : activeTab === "systems"
-                ? "จัดการระบบงานไปรษณีย์"
-                : "ภาพรวม (Overview)"}
+                  ? "จัดการข่าวสาร"
+                  : activeTab === "systems"
+                    ? "จัดการระบบงานไปรษณีย์"
+                    : "ภาพรวม (Overview)"}
             </h1>
           </div>
           <div className="flex items-center gap-4">
+            {userDept && (
+              <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-red-50 text-[#ED1C24] rounded-full border border-red-100">
+                <span className="w-2 h-2 bg-[#ED1C24] rounded-full animate-pulse"></span>
+                <span className="text-xs font-bold">
+                  กำลังจัดการในนาม: {userDept}
+                </span>
+              </div>
+            )}
             <div className="text-right hidden sm:block">
               <div className="text-sm font-bold text-gray-900">{userEmail}</div>
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Super Admin
+                {userDept || "No Dept Selected"}
               </div>
             </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-200 to-gray-100 border-2 border-white shadow-md"></div>
@@ -901,13 +1083,12 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* --- SYSTEMS TAB (เพิ่มใหม่) --- */}
           {activeTab === "systems" && (
             <div className="space-y-6 animate-fade-in-up">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                   <h2 className="text-lg font-bold text-gray-700 hidden md:block">
-                    รายการระบบงานทั้งหมด
+                    ระบบงานของ: {userDept}
                   </h2>
                   <button
                     onClick={() => {
@@ -932,29 +1113,8 @@ export default function DashboardPage() {
                       className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                     />
                   </div>
-                  <div className="w-full md:w-1/4">
-                    <select
-                      value={filterDept}
-                      onChange={(e) => setFilterDept(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
-                    >
-                      <option value="">ทุกส่วนงาน</option>
-                      {departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    onClick={resetFilter}
-                    className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 hover:text-gray-700 transition-colors text-sm font-bold whitespace-nowrap"
-                  >
-                    ล้างตัวกรอง
-                  </button>
                 </div>
               </div>
-
               {isLoadingData ? (
                 <div className="p-20 text-center flex flex-col items-center gap-4">
                   <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
@@ -967,7 +1127,7 @@ export default function DashboardPage() {
                   <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                     <SystemIcon />
                   </div>
-                  <p>ไม่พบรายการระบบงาน</p>
+                  <p>ไม่พบรายการระบบงานของ {userDept}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -978,11 +1138,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex justify-between items-start mb-3">
                         <span
-                          className={`px-2 py-1 rounded-md text-[10px] font-bold border ${
-                            sys.status === "published"
-                              ? "bg-green-50 text-green-600 border-green-100"
-                              : "bg-gray-50 text-gray-500 border-gray-200"
-                          }`}
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold border ${sys.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                         >
                           {sys.status === "published" ? "เผยแพร่" : "ซ่อน"}
                         </span>
@@ -1005,11 +1161,7 @@ export default function DashboardPage() {
                             onClick={() =>
                               handleToggleStatus("postal_systems", sys)
                             }
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              sys.status === "published"
-                                ? "text-green-500 hover:bg-green-50"
-                                : "text-gray-400 hover:bg-gray-100"
-                            }`}
+                            className={`p-1.5 rounded-lg transition-colors ${sys.status === "published" ? "text-green-500 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}
                           >
                             {sys.status === "published" ? (
                               <ToggleOnIcon />
@@ -1045,11 +1197,10 @@ export default function DashboardPage() {
 
           {activeTab === "circular" && (
             <div className="space-y-6 animate-fade-in-up">
-              {/* --- Document UI Code --- */}
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                   <h2 className="text-lg font-bold text-gray-700 hidden md:block">
-                    รายการเอกสารทั้งหมด
+                    เอกสารของส่วนงาน: {userDept}
                   </h2>
                   <button
                     onClick={() => {
@@ -1073,20 +1224,6 @@ export default function DashboardPage() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                     />
-                  </div>
-                  <div className="w-full md:w-1/4">
-                    <select
-                      value={filterDept}
-                      onChange={(e) => setFilterDept(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
-                    >
-                      <option value="">ทุกส่วนงาน</option>
-                      {departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                   <div className="flex items-center gap-2 w-full md:w-auto">
                     <input
@@ -1161,7 +1298,7 @@ export default function DashboardPage() {
                     <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                       <DocIcon size={40} />
                     </div>
-                    <p>ไม่พบข้อมูลเอกสาร</p>
+                    <p>ไม่พบข้อมูลเอกสารในส่วนงานของคุณ</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1206,11 +1343,7 @@ export default function DashboardPage() {
                         {filteredDocs.map((doc) => (
                           <tr
                             key={doc.id}
-                            className={`group transition-colors ${
-                              selectedIds.includes(doc.id)
-                                ? "bg-red-50/40"
-                                : "hover:bg-red-50/30"
-                            }`}
+                            className={`group transition-colors ${selectedIds.includes(doc.id) ? "bg-red-50/40" : "hover:bg-red-50/30"}`}
                           >
                             <td className="p-5 text-center">
                               <input
@@ -1222,18 +1355,10 @@ export default function DashboardPage() {
                             </td>
                             <td className="p-5 pl-2">
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                                  doc.status === "published"
-                                    ? "bg-green-50 text-green-600 border-green-100"
-                                    : "bg-gray-50 text-gray-500 border-gray-200"
-                                }`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${doc.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                               >
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    doc.status === "published"
-                                      ? "bg-green-500"
-                                      : "bg-gray-400"
-                                  }`}
+                                  className={`w-1.5 h-1.5 rounded-full ${doc.status === "published" ? "bg-green-500" : "bg-gray-400"}`}
                                 ></span>
                                 {doc.status === "published"
                                   ? "Published"
@@ -1262,9 +1387,7 @@ export default function DashboardPage() {
                             </td>
                             <td className="p-5">
                               <span
-                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
-                                  doc.type
-                                )}`}
+                                className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(doc.type)}`}
                               >
                                 {doc.type}
                               </span>
@@ -1280,11 +1403,7 @@ export default function DashboardPage() {
                                 onClick={() =>
                                   handleToggleStatus("documents", doc)
                                 }
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                                  doc.status === "published"
-                                    ? "text-green-500 hover:bg-green-50"
-                                    : "text-gray-400 hover:bg-gray-100"
-                                }`}
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${doc.status === "published" ? "text-green-500 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}
                               >
                                 {doc.status === "published" ? (
                                   <ToggleOnIcon />
@@ -1340,8 +1459,6 @@ export default function DashboardPage() {
                     <PlusIcon /> เพิ่มข่าวสาร
                   </button>
                 </div>
-
-                {/* --- Filter Bar For News (Added Back) --- */}
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                   <div className="relative group w-full md:w-1/3">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#ED1C24] transition-colors">
@@ -1390,8 +1507,6 @@ export default function DashboardPage() {
                     ล้างตัวกรอง
                   </button>
                 </div>
-
-                {/* --- Bulk Action For News (Added Back) --- */}
                 {selectedIds.length > 0 && (
                   <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
                     <div className="flex items-center gap-2">
@@ -1427,8 +1542,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
-
-                {/* News Table/Grid */}
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
                   {isLoadingData ? (
                     <div className="p-20 text-center flex flex-col items-center gap-4">
@@ -1486,11 +1599,7 @@ export default function DashboardPage() {
                           {filteredNews.map((item) => (
                             <tr
                               key={item.id}
-                              className={`group transition-colors ${
-                                selectedIds.includes(item.id)
-                                  ? "bg-red-50/40"
-                                  : "hover:bg-red-50/30"
-                              }`}
+                              className={`group transition-colors ${selectedIds.includes(item.id) ? "bg-red-50/40" : "hover:bg-red-50/30"}`}
                             >
                               <td className="p-5 text-center">
                                 <input
@@ -1517,18 +1626,10 @@ export default function DashboardPage() {
                               </td>
                               <td className="p-5">
                                 <span
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                                    item.status === "published"
-                                      ? "bg-green-50 text-green-600 border-green-100"
-                                      : "bg-gray-50 text-gray-500 border-gray-200"
-                                  }`}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${item.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                                 >
                                   <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      item.status === "published"
-                                        ? "bg-green-500"
-                                        : "bg-gray-400"
-                                    }`}
+                                    className={`w-1.5 h-1.5 rounded-full ${item.status === "published" ? "bg-green-500" : "bg-gray-400"}`}
                                   ></span>
                                   {item.status === "published"
                                     ? "Published"
@@ -1545,9 +1646,7 @@ export default function DashboardPage() {
                               </td>
                               <td className="p-5">
                                 <span
-                                  className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(
-                                    item.type
-                                  )}`}
+                                  className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${getTypeBadgeColor(item.type)}`}
                                 >
                                   {item.type === "ข่าวสารทั่วไป"
                                     ? "ข่าวทั่วไป"
@@ -1562,11 +1661,7 @@ export default function DashboardPage() {
                                   onClick={() =>
                                     handleToggleStatus("news", item)
                                   }
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                                    item.status === "published"
-                                      ? "text-green-500 hover:bg-green-50"
-                                      : "text-gray-400 hover:bg-gray-100"
-                                  }`}
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${item.status === "published" ? "text-green-500 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}
                                 >
                                   {item.status === "published" ? (
                                     <ToggleOnIcon />
@@ -1608,7 +1703,7 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* --- ADD/EDIT SYSTEM MODAL (New) --- */}
+      {/* --- ADD/EDIT SYSTEM MODAL --- */}
       {isSystemModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
@@ -1618,7 +1713,7 @@ export default function DashboardPage() {
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-3xl">
               <h3 className="text-xl font-black text-gray-800">
-                {isEditing ? "แก้ไขระบบงาน" : "เพิ่มระบบงาน"}
+                {isEditing ? "แก้ไขระบบงาน" : "เพิ่มระบบงาน"} ({userDept})
               </h3>
               <button
                 onClick={() => setIsSystemModalOpen(false)}
@@ -1668,24 +1763,12 @@ export default function DashboardPage() {
                 <label className="text-sm font-bold text-gray-700">
                   ส่วนงานเจ้าของระบบ
                 </label>
-                <select
-                  value={systemFormData.dept}
-                  onChange={(e) =>
-                    setSystemFormData({
-                      ...systemFormData,
-                      dept: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
-                  required
-                >
-                  <option value="">-- เลือกส่วนงาน --</option>
-                  {departments.map((d) => (
-                    <option key={d} value={d}>
-                      {d} - {departmentFullNames[d]}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={`${userDept} - ${departmentFullNames[userDept]}`}
+                  disabled
+                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">สถานะ</label>
@@ -1720,7 +1803,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsAddModalOpen(false)}
+            onClick={() => !isSubmitting && setIsAddModalOpen(false)}
           ></div>
           <div className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
@@ -1732,6 +1815,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                disabled={isSubmitting}
               >
                 ×
               </button>
@@ -1790,20 +1874,12 @@ export default function DashboardPage() {
                     <label className="text-sm font-bold text-gray-700">
                       ส่วนงาน
                     </label>
-                    <select
-                      name="dept"
-                      required
-                      value={formData.dept}
-                      onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
-                    >
-                      <option value="">-- เลือกส่วนงาน --</option>
-                      {departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={userDept}
+                      disabled
+                      className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500"
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
@@ -1869,7 +1945,7 @@ export default function DashboardPage() {
                           type="button"
                           onClick={() =>
                             setSelectedFiles((prev) =>
-                              prev.filter((_, idx) => idx !== i)
+                              prev.filter((_, idx) => idx !== i),
                             )
                           }
                           className="text-red-500"
@@ -1937,11 +2013,7 @@ export default function DashboardPage() {
               <section className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      formData.status === "published"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-200 text-gray-500"
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${formData.status === "published" ? "bg-green-100 text-green-600" : "bg-gray-200 text-gray-500"}`}
                   >
                     {formData.status === "published" ? (
                       <EyeIcon />
@@ -1971,6 +2043,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="px-6 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-white transition-all"
+                disabled={isSubmitting}
               >
                 ยกเลิก
               </button>
@@ -1979,7 +2052,7 @@ export default function DashboardPage() {
                 disabled={isSubmitting}
                 className="px-8 py-3 bg-[#ED1C24] text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all"
               >
-                {isSubmitting ? "..." : "บันทึก"}
+                {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
             </div>
           </div>
@@ -1991,7 +2064,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsNewsModalOpen(false)}
+            onClick={() => !isSubmitting && setIsNewsModalOpen(false)}
           ></div>
           <div className="bg-white w-full max-w-6xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
@@ -2003,6 +2076,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setIsNewsModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-red-50 transition-colors"
+                disabled={isSubmitting}
               >
                 ×
               </button>
@@ -2067,11 +2141,7 @@ export default function DashboardPage() {
                       })
                     }
                     disabled={newsFormData.type === "ข่าวประชาสัมพันธ์"}
-                    className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none ${
-                      newsFormData.type === "ข่าวประชาสัมพันธ์"
-                        ? "opacity-50"
-                        : ""
-                    }`}
+                    className={`w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none ${newsFormData.type === "ข่าวประชาสัมพันธ์" ? "opacity-50" : ""}`}
                     placeholder={
                       newsFormData.type === "ข่าวประชาสัมพันธ์"
                         ? "(สร้างอัตโนมัติ)"
@@ -2170,7 +2240,7 @@ export default function DashboardPage() {
                               type="button"
                               onClick={() =>
                                 setNewsGalleryImages((prev) =>
-                                  prev.filter((_, idx) => idx !== i)
+                                  prev.filter((_, idx) => idx !== i),
                                 )
                               }
                               className="text-red-500"
@@ -2187,11 +2257,7 @@ export default function DashboardPage() {
               <section className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      newsFormData.status === "published"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-200 text-gray-500"
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${newsFormData.status === "published" ? "bg-green-100 text-green-600" : "bg-gray-200 text-gray-500"}`}
                   >
                     {newsFormData.status === "published" ? (
                       <EyeIcon />
@@ -2222,6 +2288,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setIsNewsModalOpen(false)}
                 className="px-6 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-white transition-all"
+                disabled={isSubmitting}
               >
                 ยกเลิก
               </button>
@@ -2237,7 +2304,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- VIEW MODALS --- */}
+      {/* --- VIEW MODALS (Same as before) --- */}
       {isViewModalOpen && selectedDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
@@ -2249,11 +2316,7 @@ export default function DashboardPage() {
               <div className="space-y-3 flex-1 mr-4">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                      selectedDoc.status === "published"
-                        ? "bg-green-50 text-green-600 border-green-100"
-                        : "bg-gray-50 text-gray-500 border-gray-200"
-                    }`}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${selectedDoc.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
                   >
                     {selectedDoc.status === "published" ? "Published" : "Draft"}
                   </span>
@@ -2290,9 +2353,7 @@ export default function DashboardPage() {
                     ประเภท
                   </p>
                   <span
-                    className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${getTypeBadgeColor(
-                      selectedDoc.type
-                    )}`}
+                    className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${getTypeBadgeColor(selectedDoc.type)}`}
                   >
                     {selectedDoc.type}
                   </span>
@@ -2431,20 +2492,14 @@ export default function DashboardPage() {
                       {formatThaiDate(selectedNews.date)}
                     </span>
                     <span
-                      className={`px-2 py-1 rounded-md border ${getTypeBadgeColor(
-                        selectedNews.type
-                      )}`}
+                      className={`px-2 py-1 rounded-md border ${getTypeBadgeColor(selectedNews.type)}`}
                     >
                       {selectedNews.type === "ข่าวประชาสัมพันธ์ภายใน ปข.6"
                         ? "ข่าวสารทั่วไป"
                         : "ข่าวประชาสัมพันธ์"}
                     </span>
                     <span
-                      className={`px-2 py-1 rounded-md uppercase ${
-                        selectedNews.status === "published"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
+                      className={`px-2 py-1 rounded-md uppercase ${selectedNews.status === "published" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
                     >
                       {selectedNews.status}
                     </span>
@@ -2478,7 +2533,7 @@ export default function DashboardPage() {
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
@@ -2541,10 +2596,10 @@ const DocIcon = ({ size = 20 }: { size?: number }) => (
     />
   </svg>
 );
-const UserIcon = () => (
+const UserIcon = ({ size = 20 }: { size?: number }) => (
   <svg
-    width="20"
-    height="20"
+    width={size}
+    height={size}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"
@@ -2667,22 +2722,6 @@ const CloudUploadIcon = () => (
       strokeLinecap="round"
       strokeLinejoin="round"
       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-    />
-  </svg>
-);
-const SaveIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    strokeWidth={2}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
     />
   </svg>
 );
