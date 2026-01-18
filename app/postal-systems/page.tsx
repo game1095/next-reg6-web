@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/lib/supabaseClient"; // ตรวจสอบ path นี้ให้ตรงกับโปรเจกต์คุณ
+import { supabase } from "@/lib/supabaseClient";
 
 // --- Icons Components ---
 const BackIcon = () => (
@@ -55,10 +55,10 @@ const XIcon = () => (
 
 const StarIcon = ({ filled }: { filled: boolean }) => (
   <svg
-    className={`w-5 h-5 transition-colors duration-200 ${
+    className={`w-5 h-5 transition-all duration-300 ${
       filled
-        ? "text-yellow-400 fill-yellow-400"
-        : "text-gray-300 group-hover:text-gray-400"
+        ? "text-yellow-400 fill-yellow-400 scale-110"
+        : "text-gray-300 hover:text-gray-400"
     }`}
     fill="none"
     viewBox="0 0 24 24"
@@ -73,6 +73,130 @@ const StarIcon = ({ filled }: { filled: boolean }) => (
   </svg>
 );
 
+const ArrowUpIcon = () => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5 10l7-7m0 0l7 7m-7-7v18"
+    />
+  </svg>
+);
+
+// --- Type Icons ---
+const FileIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+    />
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+    />
+  </svg>
+);
+
+const ExternalLinkIcon = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+    />
+  </svg>
+);
+
+const EmptyIcon = () => (
+  <svg
+    className="w-12 h-12 text-gray-300 mb-2"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1}
+      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+    />
+  </svg>
+);
+
+const FilterIcon = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+    />
+  </svg>
+);
+
+// --- Skeleton Component ---
+const CardSkeleton = () => (
+  <div className="flex items-center gap-4 bg-white rounded-xl p-4 border border-gray-100 animate-pulse">
+    <div className="w-10 h-10 rounded-lg bg-gray-200 flex-shrink-0"></div>
+    <div className="flex-1 space-y-2 min-w-0">
+      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+    </div>
+  </div>
+);
+
 // Logo Placeholder
 const ThaiPostLogo = () => (
   <svg
@@ -84,7 +208,7 @@ const ThaiPostLogo = () => (
   </svg>
 );
 
-// Department Icons (ปรับ ID ให้ตรงกับ Database ของ Admin)
+// Department Icons
 const DeptIcon = ({ id }: { id: string }) => {
   switch (id) {
     case "FAV":
@@ -163,16 +287,17 @@ const DeptIcon = ({ id }: { id: string }) => {
   }
 };
 
+type FilterType = "all" | "web" | "doc";
+
 export default function PostalSystemsPage() {
   const [activeSection, setActiveSection] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<FilterType>("all");
   const [favorites, setFavorites] = useState<string[]>([]);
-
-  // State สำหรับเก็บข้อมูลจริงจาก DB
   const [dbSystems, setDbSystems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showScrollTop, setShowScrollTop] = useState(false); // State for Scroll To Top
 
-  // Load favorites
   useEffect(() => {
     const savedFavorites = localStorage.getItem("postalFavorites");
     if (savedFavorites) {
@@ -180,14 +305,16 @@ export default function PostalSystemsPage() {
     }
   }, []);
 
-  // Fetch systems from Supabase
   useEffect(() => {
     const fetchSystems = async () => {
+      // Simulate slight delay to show off skeleton loading (optional, remove in production if too slow)
+      // await new Promise(resolve => setTimeout(resolve, 1000));
+
       try {
         const { data, error } = await supabase
           .from("postal_systems")
           .select("*")
-          .eq("status", "published") // ดึงเฉพาะสถานะ Published
+          .eq("status", "published")
           .order("name");
 
         if (error) throw error;
@@ -198,9 +325,30 @@ export default function PostalSystemsPage() {
         setIsLoading(false);
       }
     };
-
     fetchSystems();
   }, []);
+
+  // --- Scroll to Top Logic ---
+  useEffect(() => {
+    const handleScrollButtonVisibility = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScrollButtonVisibility);
+    return () =>
+      window.removeEventListener("scroll", handleScrollButtonVisibility);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   const toggleFavorite = (systemName: string) => {
     let newFavorites;
@@ -213,7 +361,6 @@ export default function PostalSystemsPage() {
     localStorage.setItem("postalFavorites", JSON.stringify(newFavorites));
   };
 
-  // โครงสร้างส่วนงาน (Static Config) แต่ระบบงาน (systems) จะดึงจาก DB
   const departmentConfig = [
     {
       id: "รป.",
@@ -259,7 +406,6 @@ export default function PostalSystemsPage() {
     },
   ];
 
-  // รวมข้อมูลจาก Config เข้ากับข้อมูลจริงจาก DB
   const departments = useMemo(() => {
     return departmentConfig.map((dept) => ({
       ...dept,
@@ -268,27 +414,44 @@ export default function PostalSystemsPage() {
         .map((sys) => ({
           name: sys.name,
           href: sys.url,
+          isFile:
+            sys.url &&
+            sys.url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i),
         })),
     }));
   }, [dbSystems]);
 
-  // Logic for filtering by search
   const filteredDepartments = useMemo(() => {
-    if (!searchTerm) return departments;
+    let result = departments;
 
-    return departments
-      .map((dept) => ({
+    // Filter Type
+    if (filterType !== "all") {
+      result = result.map((dept) => ({
         ...dept,
-        systems: dept.systems.filter(
-          (sys) =>
-            sys.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dept.name.toLowerCase().includes(searchTerm.toLowerCase())
-        ),
-      }))
-      .filter((dept) => dept.systems.length > 0);
-  }, [searchTerm, departments]);
+        systems: dept.systems.filter((sys) => {
+          if (filterType === "web") return !sys.isFile;
+          if (filterType === "doc") return sys.isFile;
+          return true;
+        }),
+      }));
+    }
 
-  // Logic to find favorite systems objects
+    // Search
+    if (searchTerm.trim()) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result
+        .map((dept) => ({
+          ...dept,
+          systems: dept.systems.filter((sys) =>
+            sys.name.toLowerCase().includes(lowerTerm),
+          ),
+        }))
+        .filter((dept) => dept.systems.length > 0);
+    }
+
+    return result;
+  }, [searchTerm, departments, filterType]);
+
   const favoriteSystemsList = useMemo(() => {
     const allSystems = departments.flatMap((d) => d.systems);
     return allSystems.filter((sys) => favorites.includes(sys.name));
@@ -298,7 +461,6 @@ export default function PostalSystemsPage() {
     const handleScroll = () => {
       const sections = departments.map((d) => document.getElementById(d.id));
       const scrollPosition = window.scrollY + 180;
-
       for (const section of sections) {
         if (
           section &&
@@ -312,32 +474,29 @@ export default function PostalSystemsPage() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [departments]); // Re-run when departments loaded
+  }, [departments]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
       const offset = 100;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY - offset,
+        behavior: "smooth",
+      });
       setActiveSection(id);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] font-sans text-[#1A1A1A]">
-      <div className="absolute top-0 left-0 w-full h-80 bg-gradient-to-b from-slate-200 to-transparent opacity-40 -z-10 pointer-events-none"></div>
+    <div className="min-h-screen bg-[#FDFDFD] font-sans text-[#1A1A1A]">
+      <div className="absolute top-0 left-0 w-full h-80 bg-gradient-to-b from-gray-100 to-transparent opacity-60 -z-10 pointer-events-none"></div>
 
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-50 shadow-sm">
         <div className="h-1 w-full bg-[#ED1C24]"></div>
-
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            {/* Left: Logo & Title */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link href="/" className="group">
@@ -359,15 +518,13 @@ export default function PostalSystemsPage() {
                 </div>
               </div>
             </div>
-
-            {/* Right: Search Bar */}
             <div className="relative w-full md:w-96">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <SearchIcon />
               </div>
               <input
                 type="text"
-                placeholder="ค้นหาระบบงาน..."
+                placeholder="ค้นหาระบบงาน หรือ เอกสาร..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#ED1C24] focus:border-transparent transition-all sm:text-sm"
@@ -387,47 +544,36 @@ export default function PostalSystemsPage() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-          {/* Side Navigation */}
+          {/* Sidebar */}
           {!searchTerm && (
-            <aside className="lg:w-80 flex-shrink-0 hidden lg:block">
+            <aside className="lg:w-72 flex-shrink-0 hidden lg:block">
               <div className="sticky top-32 z-30">
-                <nav className="flex flex-col gap-1.5">
-                  {/* Jump to Favorites Button (if has favorites) */}
+                <nav className="flex flex-col gap-1">
                   {favorites.length > 0 && (
                     <button
                       onClick={() => scrollToSection("FAV")}
-                      className={`relative flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 text-left w-full group overflow-hidden mb-2 border border-yellow-200 bg-yellow-50 text-yellow-700 hover:shadow-md hover:bg-yellow-100`}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-yellow-600 bg-yellow-50 hover:bg-yellow-100 transition-all mb-4"
                     >
-                      <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-white shadow-sm text-yellow-500">
-                        <StarIcon filled={true} />
-                      </div>
-                      <span className="relative z-10 leading-snug">
-                        รายการโปรด ({favorites.length})
-                      </span>
+                      <StarIcon filled={true} /> รายการโปรด
                     </button>
                   )}
-
                   {departments.map((dept) => {
                     const isActive = activeSection === dept.id;
                     return (
                       <button
                         key={dept.id}
                         onClick={() => scrollToSection(dept.id)}
-                        className={`relative flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 text-left w-full group overflow-hidden ${
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
                           isActive
-                            ? "bg-[#ED1C24] text-white shadow-lg shadow-red-200"
-                            : "text-gray-600 hover:bg-white hover:shadow-md hover:text-[#ED1C24] bg-transparent"
+                            ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
+                            : "text-gray-600 hover:bg-gray-100"
                         }`}
                       >
                         <div
-                          className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${
-                            isActive
-                              ? "bg-white/20 text-white"
-                              : "bg-white text-gray-400 group-hover:text-[#ED1C24] shadow-sm"
-                          }`}
+                          className={`w-6 h-6 flex items-center justify-center ${isActive ? "text-white" : "text-gray-400"}`}
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-5 h-5"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -435,9 +581,7 @@ export default function PostalSystemsPage() {
                             <DeptIcon id={dept.id} />
                           </svg>
                         </div>
-                        <span className="relative z-10 leading-snug">
-                          {dept.shortName}
-                        </span>
+                        {dept.shortName}
                       </button>
                     );
                   })}
@@ -446,205 +590,307 @@ export default function PostalSystemsPage() {
             </aside>
           )}
 
-          {/* Mobile Navigation */}
-          {!searchTerm && (
-            <div className="lg:hidden">
-              <div className="flex overflow-x-auto pb-4 gap-2 scrollbar-hide -mx-4 px-4 snap-x">
-                {favorites.length > 0 && (
-                  <button
-                    onClick={() => scrollToSection("FAV")}
-                    className="flex-shrink-0 snap-start px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border bg-yellow-50 text-yellow-700 border-yellow-200"
-                  >
-                    ★ รายการโปรด
-                  </button>
-                )}
-                {departments.map((dept) => (
-                  <button
-                    key={dept.id}
-                    onClick={() => scrollToSection(dept.id)}
-                    className={`flex-shrink-0 snap-start px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${
-                      activeSection === dept.id
-                        ? "bg-[#ED1C24] text-white border-[#ED1C24] shadow-md shadow-red-200"
-                        : "bg-white text-gray-600 border-gray-200"
-                    }`}
-                  >
-                    {dept.id}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Main Content */}
-          <main className="flex-1 min-w-0 space-y-12 pb-20">
+          <main className="flex-1 min-w-0 space-y-10 pb-20">
+            {/* Filter Buttons */}
+            <div className="flex items-center gap-2 pb-4 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+              <span className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
+                <FilterIcon /> กรองข้อมูล:
+              </span>
+              <button
+                onClick={() => setFilterType("all")}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                  filterType === "all"
+                    ? "bg-gray-800 text-white shadow-md"
+                    : "bg-white text-gray-500 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                ทั้งหมด
+              </button>
+              <button
+                onClick={() => setFilterType("web")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                  filterType === "web"
+                    ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
+                    : "bg-white text-gray-500 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <GlobeIcon /> ระบบงาน
+              </button>
+              <button
+                onClick={() => setFilterType("doc")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                  filterType === "doc"
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                    : "bg-white text-gray-500 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <FileIcon /> คู่มือ
+              </button>
+            </div>
+
+            {/* --- LOADING SKELETON --- */}
             {isLoading && (
-              <div className="text-center py-20">
-                <div className="w-10 h-10 border-4 border-red-200 border-t-[#ED1C24] rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-400">กำลังโหลดข้อมูลระบบงาน...</p>
+              <div className="space-y-12">
+                {/* Mock a section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse"></div>
+                    <div className="space-y-2">
+                      <div className="w-48 h-6 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="w-32 h-4 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[...Array(9)].map((_, i) => (
+                      <CardSkeleton key={i} />
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* --- FAVORITES --- */}
+            {!isLoading &&
+              !searchTerm &&
+              filterType === "all" &&
+              favoriteSystemsList.length > 0 && (
+                <section id="FAV" className="scroll-mt-32">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span className="text-yellow-400">
+                      <StarIcon filled={true} />
+                    </span>{" "}
+                    รายการโปรด
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {favoriteSystemsList.map((system, idx) => (
+                      <div key={`fav-${idx}`} className="relative group">
+                        <a
+                          href={system.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-4 bg-white rounded-xl p-4 border border-yellow-200 hover:border-yellow-300 hover:bg-yellow-50/20 hover:shadow-md transition-all group/card"
+                        >
+                          <div
+                            className={`w-10 h-10 flex-shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+                              system.isFile
+                                ? "bg-blue-50 text-blue-600 group-hover/card:bg-blue-100"
+                                : "bg-red-50 text-[#ED1C24] group-hover/card:bg-red-100"
+                            }`}
+                          >
+                            {system.isFile ? <FileIcon /> : <GlobeIcon />}
+                          </div>
+                          <div className="flex-1 min-w-0 pr-6">
+                            <h4 className="font-bold text-gray-700 text-sm truncate group-hover/card:text-gray-900">
+                              {system.name}
+                            </h4>
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                              {system.isFile ? (
+                                <>
+                                  <DownloadIcon /> ดาวน์โหลด
+                                </>
+                              ) : (
+                                <>
+                                  <ExternalLinkIcon /> เข้าสู่ระบบ
+                                </>
+                              )}
+                            </p>
+                          </div>
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toggleFavorite(system.name);
+                          }}
+                          className="absolute top-2 right-2 p-1.5 text-yellow-400 hover:scale-110 transition-transform"
+                        >
+                          <StarIcon filled={true} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+            {/* --- CONTENT LIST --- */}
             {!isLoading && filteredDepartments.length === 0 && (
-              <div className="text-center py-20">
-                <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-gray-300 mb-4">
                   <SearchIcon />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  ไม่พบระบบงานที่ค้นหา
-                </h3>
-                <p className="text-gray-500">
-                  ลองตรวจสอบคำสะกด หรือค้นหาด้วยคำสำคัญอื่น
+                <h3 className="text-lg font-bold text-gray-400">ไม่พบข้อมูล</h3>
+                <p className="text-gray-400 text-sm">
+                  ลองค้นหาด้วยคำอื่น หรือเปลี่ยนตัวกรอง
                 </p>
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="mt-4 text-[#ED1C24] font-bold hover:underline"
-                >
-                  ล้างคำค้นหา
-                </button>
               </div>
-            )}
-
-            {/* FAVORITES SECTION */}
-            {!searchTerm && favoriteSystemsList.length > 0 && (
-              <section
-                id="FAV"
-                className="scroll-mt-36 group/section border-b-2 border-gray-100 pb-8"
-              >
-                <div className="flex items-center gap-4 mb-6 pb-2">
-                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl flex-shrink-0 flex items-center justify-center bg-yellow-50 shadow-sm border border-yellow-100 text-yellow-500">
-                    <svg
-                      className="w-6 h-6 md:w-7 md:h-7"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <DeptIcon id="FAV" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-none mb-2">
-                      รายการโปรดของคุณ
-                    </h2>
-                    <p className="text-sm text-gray-500 font-normal border-l-2 border-yellow-200 pl-3">
-                      ระบบงานที่คุณใช้งานบ่อย
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {favoriteSystemsList.map((system, idx) => (
-                    <div key={`fav-${idx}`} className="relative group">
-                      <a
-                        href={system.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block bg-white rounded-xl p-5 border border-yellow-100 shadow-[0_2px_8px_rgba(250,204,21,0.1)] hover:shadow-[0_8px_16px_rgba(250,204,21,0.2)] hover:border-yellow-300 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between min-h-[80px]"
-                      >
-                        <div className="flex items-center gap-3.5 pr-10">
-                          <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0"></div>
-                          <span className="font-bold text-gray-700 text-base md:text-lg group-hover:text-yellow-600 transition-colors leading-tight">
-                            {system.name}
-                          </span>
-                        </div>
-                      </a>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleFavorite(system.name);
-                        }}
-                        className="absolute top-4 right-4 p-1.5 rounded-lg bg-yellow-50 hover:bg-yellow-100 text-yellow-400 z-10 transition-colors"
-                      >
-                        <StarIcon filled={true} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
             )}
 
             {!isLoading &&
-              filteredDepartments.map((dept) => (
-                <section
-                  key={dept.id}
-                  id={dept.id}
-                  className="scroll-mt-36 group/section"
-                >
-                  <div className="flex items-start md:items-end gap-4 mb-6 pb-2">
-                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl flex-shrink-0 flex items-center justify-center bg-white shadow-sm border border-gray-100 text-[#ED1C24]">
-                      <svg
-                        className="w-6 h-6 md:w-7 md:h-7"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <DeptIcon id={dept.id} />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-none mb-2">
-                        {dept.name}
-                      </h2>
-                      <p className="text-sm text-gray-500 font-normal border-l-2 border-gray-200 pl-3">
-                        {dept.desc}
-                      </p>
-                    </div>
-                  </div>
+              filteredDepartments.map((dept) => {
+                const webSystems = dept.systems.filter((s) => !s.isFile);
+                const documents = dept.systems.filter((s) => s.isFile);
+                const isEmpty =
+                  webSystems.length === 0 && documents.length === 0;
 
-                  {dept.systems.length === 0 ? (
-                    <div className="col-span-full py-8 text-center border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                      <p className="text-gray-400 text-sm font-medium">
-                        ยังไม่มีระบบงานในส่วนนี้
-                      </p>
+                if (filterType !== "all" && isEmpty) return null;
+
+                return (
+                  <section
+                    key={dept.id}
+                    id={dept.id}
+                    className="scroll-mt-32 group/section pt-4 border-t border-gray-100 first:border-0 first:pt-0"
+                  >
+                    {/* Department Header */}
+                    <div className="flex items-start gap-4 mb-8">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm border border-gray-100 text-[#ED1C24]">
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <DeptIcon id={dept.id} />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 leading-none mb-2">
+                          {dept.name}
+                        </h2>
+                        <p className="text-gray-500 text-sm">{dept.desc}</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {dept.systems.map((system, idx) => {
-                        const isFav = favorites.includes(system.name);
-                        return (
-                          <div key={idx} className="relative group">
-                            <a
-                              href={system.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block bg-white rounded-xl p-5 border border-gray-100 shadow-[0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_16px_rgba(237,28,36,0.08)] hover:border-red-100 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between min-h-[80px]"
-                            >
-                              <div className="flex items-center gap-3.5 pr-10">
-                                <div
-                                  className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 flex-shrink-0 ${
+
+                    {/* Empty State */}
+                    {isEmpty && filterType === "all" && (
+                      <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-gray-100 rounded-2xl bg-gray-50/50 text-center">
+                        <EmptyIcon />
+                        <p className="text-gray-400 font-medium">
+                          ยังไม่มีข้อมูลในหมวดนี้
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 1. Web Systems Grid */}
+                    {webSystems.length > 0 && (
+                      <div className="mb-8">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                          <GlobeIcon /> ระบบงาน (Applications)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {webSystems.map((system, idx) => {
+                            const isFav = favorites.includes(system.name);
+                            return (
+                              <div
+                                key={`web-${idx}`}
+                                className="relative group"
+                              >
+                                <a
+                                  href={system.href}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-4 bg-white rounded-xl p-4 border border-gray-100 hover:border-red-200 hover:bg-red-50/30 hover:shadow-md transition-all group/card"
+                                >
+                                  <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-red-50 text-[#ED1C24] flex items-center justify-center group-hover/card:bg-red-100 transition-colors">
+                                    <GlobeIcon />
+                                  </div>
+                                  <div className="flex-1 min-w-0 pr-6">
+                                    <h4 className="font-bold text-gray-700 text-sm truncate group-hover/card:text-[#ED1C24]">
+                                      {system.name}
+                                    </h4>
+                                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                      <ExternalLinkIcon /> เข้าสู่ระบบ
+                                    </p>
+                                  </div>
+                                </a>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    toggleFavorite(system.name);
+                                  }}
+                                  className={`absolute top-2 right-2 p-1.5 ${
                                     isFav
-                                      ? "bg-yellow-400"
-                                      : "bg-gray-200 group-hover:bg-[#ED1C24]"
+                                      ? "text-yellow-400"
+                                      : "text-transparent group-hover:text-gray-300 hover:!text-yellow-400"
                                   }`}
-                                ></div>
-                                <span className="font-bold text-gray-700 text-base md:text-lg group-hover:text-[#ED1C24] transition-colors leading-tight">
-                                  {system.name}
-                                </span>
+                                >
+                                  <StarIcon filled={isFav} />
+                                </button>
                               </div>
-                            </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
-                            {/* Favorite Button Overlay */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                toggleFavorite(system.name);
-                              }}
-                              className="absolute top-4 right-3 p-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-50 z-10 transition-all"
-                              title={
-                                isFav ? "ลบจากรายการโปรด" : "เพิ่มในรายการโปรด"
-                              }
-                            >
-                              <StarIcon filled={isFav} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              ))}
+                    {/* 2. Documents Grid */}
+                    {documents.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                          <FileIcon /> คู่มือ/เอกสาร (Documents)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {documents.map((doc, idx) => {
+                            const isFav = favorites.includes(doc.name);
+                            return (
+                              <div
+                                key={`doc-${idx}`}
+                                className="relative group"
+                              >
+                                <a
+                                  href={doc.href}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-4 bg-white rounded-xl p-4 border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all group/card"
+                                >
+                                  <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover/card:bg-blue-100 transition-colors">
+                                    <FileIcon />
+                                  </div>
+                                  <div className="flex-1 min-w-0 pr-6">
+                                    <h4 className="font-bold text-gray-700 text-sm truncate group-hover/card:text-blue-700">
+                                      {doc.name}
+                                    </h4>
+                                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                      <DownloadIcon /> ดาวน์โหลด
+                                    </p>
+                                  </div>
+                                </a>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    toggleFavorite(doc.name);
+                                  }}
+                                  className={`absolute top-2 right-2 p-1.5 ${
+                                    isFav
+                                      ? "text-yellow-400"
+                                      : "text-transparent group-hover:text-gray-300 hover:!text-yellow-400"
+                                  }`}
+                                >
+                                  <StarIcon filled={isFav} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
           </main>
         </div>
       </div>
+
+      {/* --- SCROLL TO TOP BUTTON --- */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-8 right-8 z-50 p-4 rounded-full bg-[#ED1C24] text-white shadow-lg hover:bg-red-700 transition-all duration-300 transform ${
+          showScrollTop
+            ? "translate-y-0 opacity-100"
+            : "translate-y-20 opacity-0"
+        }`}
+      >
+        <ArrowUpIcon />
+      </button>
 
       <style jsx global>{`
         .scrollbar-hide::-webkit-scrollbar {
