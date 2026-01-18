@@ -298,13 +298,20 @@ export default function Home() {
   );
 
   // --- Data Arrays ---
-  const navItems = [
+  // ✅ แก้ไข: เพิ่ม Type Definition เพื่อบอกว่า dropdown เป็น optional (?)
+  const navItems: {
+    name: string;
+    href: string;
+    active: boolean;
+    target?: string;
+    dropdown?: { name: string; href: string }[];
+  }[] = [
     { name: "หน้าหลัก", href: "/", active: true },
     { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
     { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
-      name: "รวมระบบไปรษณีย์/คู่มือ", // ✅ แก้ไขชื่อตามต้องการ
+      name: "รวมระบบไปรษณีย์/คู่มือ",
       href: "/postal-systems",
       active: false,
       target: "_blank",
@@ -313,7 +320,6 @@ export default function Home() {
     { name: "ติดต่อเรา", href: "#", active: false },
     { name: "เข้าสู่ระบบ", href: "#", active: false },
   ];
-
   const contactList = [
     { name: "ฝปข.6", phone: "098-9999999" },
     { name: "ผช.ฝปข.6 (ป)", phone: "098-9999999" },
