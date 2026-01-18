@@ -415,21 +415,25 @@ export default function DashboardPage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // --- ปรับปรุงการเช็คข้อมูลตรงนี้ (เพิ่ม phone) ---
     if (
       !formData.book_no.trim() ||
       !formData.title.trim() ||
       !formData.date ||
       !userDept ||
-      !formData.details.trim()
+      !formData.details.trim() ||
+      !formData.phone.trim() // <-- บังคับเช็คเบอร์โทร
     ) {
       Swal.fire({
         icon: "warning",
         title: "ข้อมูลไม่ครบถ้วน",
-        text: "กรุณากรอกข้อมูลให้ครบทุกช่อง",
+        text: "กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบทุกช่อง",
         confirmButtonColor: "#f59e0b",
       });
       return;
     }
+    // ------------------------------------------
 
     setIsSubmitting(true);
     setShowProgressModal(true);
@@ -437,6 +441,7 @@ export default function DashboardPage() {
     setCurrentTask("กำลังเตรียมข้อมูล...");
 
     try {
+      // ... (โค้ดส่วนการอัปโหลดไฟล์เหมือนเดิม ไม่ต้องแก้) ...
       // Logic for Documents: Total Files + 1 (Save DB)
       const totalFiles = selectedFiles.length;
       const totalSteps = totalFiles + 1;
@@ -488,11 +493,9 @@ export default function DashboardPage() {
         await supabase.from("documents").update(payload).eq("id", editDocId);
       else await supabase.from("documents").insert([payload]);
 
-      // --- เพิ่มส่วนนี้: บันทึกเบอร์โทรลง Local Storage ---
       if (formData.phone) {
         localStorage.setItem("last_contact_phone", formData.phone);
       }
-      // ---------------------------------------------
 
       updateProgress(100, "เสร็จสิ้น!");
       await new Promise((r) => setTimeout(r, 500));
@@ -519,7 +522,6 @@ export default function DashboardPage() {
       setShowProgressModal(false);
     }
   };
-
   // --- Actions & Utils (Existing Code) ---
   const handleToggleStatus = async (
     table: "documents" | "news" | "postal_systems",
@@ -1838,46 +1840,45 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      เลขที่หนังสือ
+                      เลขที่หนังสือ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       name="book_no"
-                      required
+                      required // <-- บังคับ
                       value={formData.book_no}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-red-500 transition-colors"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      ลงวันที่
+                      ลงวันที่ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       name="date"
-                      required
+                      required // <-- บังคับ
                       value={formData.date}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-red-500 transition-colors"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    หัวข้อเรื่อง
+                    หัวข้อเรื่อง <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="title"
-                    required
+                    required // <-- บังคับ
                     value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-red-500 transition-colors"
                   />
                 </div>
 
-                {/* --- แก้ไขจุดนี้: ปรับเป็น 3 คอลัมน์ แล้วเพิ่ม Phone --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
@@ -1887,18 +1888,18 @@ export default function DashboardPage() {
                       type="text"
                       value={userDept}
                       disabled
-                      className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500"
+                      className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      ประเภท
+                      ประเภท <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="type"
                       value={formData.type}
                       onChange={handleInputChange}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-red-500 transition-colors"
                     >
                       <option value="บันทึกข้อความ">บันทึกข้อความ</option>
                       <option value="ประกาศ">ประกาศ</option>
@@ -1908,30 +1909,31 @@ export default function DashboardPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
-                      เบอร์โทรศัพท์
+                      เบอร์โทรศัพท์ <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       name="phone"
+                      required // <-- บังคับ
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="เช่น 02-xxx-xxxx"
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-red-500 transition-colors"
                     />
                   </div>
                 </div>
-                {/* ----------------------------------------------- */}
 
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
-                    รายละเอียด
+                    รายละเอียด <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     name="details"
+                    required // <-- บังคับ
                     rows={3}
                     value={formData.details}
                     onChange={handleInputChange}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none resize-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none resize-none focus:bg-white focus:border-red-500 transition-colors"
                   ></textarea>
                 </div>
               </section>
