@@ -58,6 +58,7 @@ export default function Home() {
 
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [selectedNews, setSelectedNews] = useState<any>(null);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
   // --- Dashboard State ---
   const [activeDashboard, setActiveDashboard] = useState<"income" | "fuze">(
@@ -1146,7 +1147,10 @@ export default function Home() {
                       {paginatedDocs.map((doc, index) => (
                         <tr
                           key={doc.id}
-                          onClick={() => setSelectedDocument(doc)}
+                          onClick={() => {
+                            setSelectedDocument(doc);
+                            setIsDetailsExpanded(false); // ✅ เพิ่มบรรทัดนี้: รีเซ็ตให้ย่อทุกครั้งที่เปิดใหม่
+                          }}
                           className="group cursor-pointer transition-all duration-300 hover:-translate-y-1"
                         >
                           <td className="bg-white p-6 rounded-l-2xl shadow-sm group-hover:shadow-lg transition-all relative overflow-hidden">
@@ -1818,14 +1822,71 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Details */}
+                {/* Details (with Expand/Collapse) */}
                 <div className="mb-8">
                   <h4 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-[#ED1C24] rounded-full"></span>
                     รายละเอียด
                   </h4>
-                  <div className="text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap">
-                    {selectedDocument.details || "ไม่มีรายละเอียดเพิ่มเติม"}
+
+                  <div className="relative">
+                    <div
+                      className={`text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap transition-all duration-300 ${
+                        isDetailsExpanded
+                          ? ""
+                          : "line-clamp-4 max-h-[100px] overflow-hidden"
+                      }`}
+                    >
+                      {selectedDocument.details || "ไม่มีรายละเอียดเพิ่มเติม"}
+                    </div>
+
+                    {/* ปุ่มกดแสดงเพิ่มเติม จะแสดงก็ต่อเมื่อมีข้อความ */}
+                    {selectedDocument.details &&
+                      selectedDocument.details.length > 100 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsDetailsExpanded(!isDetailsExpanded);
+                          }}
+                          className="mt-2 text-xs font-bold text-[#ED1C24] hover:text-red-700 flex items-center gap-1 transition-colors bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg"
+                        >
+                          {isDetailsExpanded ? (
+                            <>
+                              ย่อรายละเอียด
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 15l7-7 7 7"
+                                />
+                              </svg>
+                            </>
+                          ) : (
+                            <>
+                              อ่านทั้งหมด
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </>
+                          )}
+                        </button>
+                      )}
                   </div>
                 </div>
 
