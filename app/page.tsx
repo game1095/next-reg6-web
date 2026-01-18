@@ -429,7 +429,7 @@ export default function Home() {
         }
       `}</style>
 
-      {/* ✅ NAVBAR (Responsive) */}
+      {/* ✅ NAVBAR (Responsive: Show Full Menu on XL, Hamburger on LG and below) */}
       <nav
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
           isScrolled
@@ -462,8 +462,9 @@ export default function Home() {
               </div>
             </div>
             <div className="flex flex-col">
+              {/* ✅ UPDATE: Adjusted text size for responsiveness */}
               <span
-                className={`font-black text-lg md:text-2xl leading-none tracking-tight transition-colors duration-300 ${
+                className={`font-black text-lg md:text-xl xl:text-2xl leading-none tracking-tight transition-colors duration-300 ${
                   isScrolled
                     ? "text-gray-900 group-hover:text-[#ED1C24]"
                     : "text-white drop-shadow-md"
@@ -483,9 +484,9 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Desktop Menu (Hidden on Mobile) */}
+          {/* ✅ UPDATE: Desktop Menu (Hidden on Mobile/Tablet, Visible on XL) */}
           <div
-            className={`hidden md:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
+            className={`hidden xl:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
                 ? "bg-white/50 backdrop-blur-sm border-gray-200/50"
                 : "bg-black/20 backdrop-blur-md border-white/10"
@@ -540,10 +541,10 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Mobile Hamburger Button (Visible only on Mobile) */}
+          {/* ✅ UPDATE: Mobile/Tablet Hamburger Button (Visible below XL) */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className={`md:hidden p-2 rounded-lg transition-colors ${
+            className={`xl:hidden p-2 rounded-lg transition-colors ${
               isScrolled ? "text-gray-800" : "text-white"
             }`}
           >
@@ -633,8 +634,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-
-          {/* ✅ ลบปุ่ม "ติดต่อเรา" ขนาดใหญ่ด้านล่างออกแล้วครับ */}
         </div>
       </div>
 
