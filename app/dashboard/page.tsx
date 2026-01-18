@@ -630,7 +630,9 @@ export default function DashboardPage() {
     }
   };
 
-  const handleBulkDelete = async (table: "documents" | "news") => {
+  const handleBulkDelete = async (
+    table: "documents" | "news" | "postal_systems", // 1. เพิ่ม postal_systems เข้าไปใน Type
+  ) => {
     if (selectedIds.length === 0) return;
     const result = await Swal.fire({
       title: `ลบ ${selectedIds.length} รายการ?`,
@@ -649,8 +651,12 @@ export default function DashboardPage() {
       if (error) Swal.fire("Error", error.message, "error");
       else {
         await Swal.fire("Deleted!", "ลบข้อมูลเรียบร้อยแล้ว", "success");
+
+        // 2. ปรับ Logic การดึงข้อมูลใหม่ (Re-fetch) ให้ครอบคลุมทุกตาราง
         if (table === "documents") fetchDocuments();
-        else fetchNews();
+        else if (table === "news") fetchNews();
+        else if (table === "postal_systems") fetchSystems(); // เพิ่มส่วนนี้สำหรับ systems
+
         setSelectedIds([]);
       }
     }
