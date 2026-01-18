@@ -355,7 +355,7 @@ export default function Home() {
           กำลังเข้าสู่ระบบ...
         </h2>
         <p className="text-gray-400 text-sm mt-2 font-medium tracking-widest uppercase">
-          Thailand Post Sector 6
+          REGIONAL POSTAL BUREAU (REGION 6)
         </p>
         <div className="w-80 md:w-96 h-2 bg-gray-100 rounded-full mt-8 overflow-hidden relative">
           <div className="absolute top-0 left-0 h-full w-full bg-[#ED1C24] origin-left animate-[shimmer_2s_infinite]"></div>
@@ -484,7 +484,7 @@ export default function Home() {
                     : "text-gray-200 group-hover:text-white"
                 }`}
               >
-                Thailand Post Sector 6
+                REGIONAL POSTAL BUREAU (REGION 6)
               </span>
             </div>
           </Link>
@@ -672,7 +672,7 @@ export default function Home() {
               <span className="relative inline-flex rounded-full h-3 w-3 bg-[#ED1C24]"></span>
             </span>
             <span className="text-xs font-bold text-white tracking-widest uppercase drop-shadow-md">
-              Thailand Post Sector 6
+              REGIONAL POSTAL BUREAU (REGION 6)
             </span>
           </div>
           <div className="space-y-2 animate-fade-in-up delay-200">
@@ -1326,7 +1326,7 @@ export default function Home() {
                     สำนักงานไปรษณีย์เขต 6
                   </span>
                   <span className="text-xs text-[#ED1C24] font-bold tracking-widest uppercase mt-1">
-                    Thailand Post Sector 6
+                    REGIONAL POSTAL BUREAU (REGION 6)
                   </span>
                 </div>
               </div>
