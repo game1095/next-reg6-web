@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [filterDept, setFilterDept] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [filterSystemType, setFilterSystemType] = useState(""); // "" | "link" | "file"
 
   // --- Data & Selection States ---
   const [docList, setDocList] = useState<any[]>([]);
@@ -52,6 +53,10 @@ export default function DashboardPage() {
   const [editDocId, setEditDocId] = useState<number | null>(null);
   const [editNewsId, setEditNewsId] = useState<number | null>(null);
   const [editSystemId, setEditSystemId] = useState<number | null>(null);
+
+  // --- State สำหรับแยกประเภท (Link หรือ File) ---
+  const [systemType, setSystemType] = useState<"link" | "file">("link");
+  const [systemFile, setSystemFile] = useState<File | null>(null);
 
   // --- Toast ---
   const Toast = Swal.mixin({
@@ -250,33 +255,72 @@ export default function DashboardPage() {
 
   const handleSystemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!systemFormData.name || !systemFormData.url || !userDept) {
+
+    // 1. ตรวจสอบข้อมูล (Validation)
+    if (!systemFormData.name || !userDept) {
       Swal.fire({
         icon: "warning",
         title: "ข้อมูลไม่ครบ",
-        text: "กรุณากรอกข้อมูลให้ครบ",
-        confirmButtonColor: "#f59e0b",
+        text: "กรุณากรอกชื่อระบบ/คู่มือ",
+      });
+      return;
+    }
+    if (systemType === "link" && !systemFormData.url) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณากรอก URL",
+      });
+      return;
+    }
+    if (systemType === "file" && !isEditing && !systemFile) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณาเลือกไฟล์เอกสาร",
       });
       return;
     }
 
-    // Start Progress (Fake for System as no files)
     setIsSubmitting(true);
     setShowProgressModal(true);
     setUploadProgress(10);
-    setCurrentTask("กำลังบันทึกข้อมูล...");
+    setCurrentTask("กำลังเตรียมข้อมูล...");
 
     try {
-      setUploadProgress(50);
+      let finalUrl = systemFormData.url;
+
+      // 2. ถ้าเลือกเป็นไฟล์ และมีการแนบไฟล์ใหม่ -> อัปโหลดขึ้น Storage
+      if (systemType === "file" && systemFile) {
+        setUploadProgress(30);
+        setCurrentTask("กำลังอัปโหลดไฟล์คู่มือ...");
+
+        // uploadFileSingle เป็นฟังก์ชันที่มีอยู่แล้วใน code เดิม
+        const uploaded = await uploadFileSingle(systemFile, "documents");
+        finalUrl = uploaded.url; // ได้ลิงก์ไฟล์มาเก็บไว้ในตัวแปร finalUrl
+
+        setUploadProgress(60);
+      } else if (systemType === "link") {
+        // ถ้าเลือกเป็น Link ให้ใช้ค่าจาก input ตรงๆ
+        finalUrl = systemFormData.url;
+      }
+
+      // 3. เตรียมข้อมูลลง Database (ใช้ตาราง postal_systems ตามภาพ)
       const payload = {
-        ...systemFormData,
+        name: systemFormData.name,
+        url: finalUrl, // เก็บ Link หรือ File URL ลงช่องเดียวกัน
         dept: userDept,
+        status: systemFormData.status,
         status_color:
           systemFormData.status === "published"
             ? "bg-green-500"
             : "bg-gray-400",
       };
 
+      setUploadProgress(80);
+      setCurrentTask("กำลังบันทึกลงฐานข้อมูล...");
+
+      // 4. บันทึกลง Supabase
       if (isEditing && editSystemId) {
         await supabase
           .from("postal_systems")
@@ -288,12 +332,12 @@ export default function DashboardPage() {
 
       setUploadProgress(100);
       setCurrentTask("เสร็จสิ้น!");
-      await new Promise((r) => setTimeout(r, 500)); // Show 100% briefly
+      await new Promise((r) => setTimeout(r, 500));
 
-      Toast.fire({ icon: "success", title: "บันทึกระบบงานเรียบร้อย" });
+      Toast.fire({ icon: "success", title: "บันทึกข้อมูลเรียบร้อย" });
       setIsSystemModalOpen(false);
       resetSystemForm();
-      fetchSystems();
+      fetchSystems(); // รีเฟรชรายการใหม่
     } catch (error: any) {
       Swal.fire({ icon: "error", title: "Error", text: error.message });
     } finally {
@@ -685,12 +729,20 @@ export default function DashboardPage() {
   const handleEditSystem = (item: any) => {
     setIsEditing(true);
     setEditSystemId(item.id);
+
+    // ตรวจสอบว่า URL เป็นไฟล์หรือไม่ (เช็คนามสกุล) เพื่อเลือก Radio ให้ถูก
+    const isFileUrl =
+      item.url &&
+      item.url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i);
+    setSystemType(isFileUrl ? "file" : "link");
+
     setSystemFormData({
       name: item.name,
       url: item.url,
       dept: item.dept,
       status: item.status,
     });
+    setSystemFile(null); // ไฟล์ใหม่ยังไม่ได้เลือก
     setIsSystemModalOpen(true);
   };
 
@@ -739,6 +791,7 @@ export default function DashboardPage() {
     setIsEditing(false);
     setEditNewsId(null);
   };
+  // --- ฟังก์ชัน Reset Form ---
   const resetSystemForm = () => {
     setSystemFormData({
       name: "",
@@ -746,6 +799,8 @@ export default function DashboardPage() {
       dept: userDept,
       status: "published",
     });
+    setSystemType("link");
+    setSystemFile(null);
     setIsEditing(false);
     setEditSystemId(null);
   };
@@ -754,6 +809,7 @@ export default function DashboardPage() {
     setFilterDept("");
     setFilterStartDate("");
     setFilterEndDate("");
+    setFilterSystemType("");
   };
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -799,9 +855,22 @@ export default function DashboardPage() {
     const matchesEndDate = filterEndDate ? news.date <= filterEndDate : true;
     return matchesSearch && matchesType && matchesStartDate && matchesEndDate;
   });
-  const filteredSystems = systemList.filter((sys) =>
-    sys.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredSystems = systemList.filter((sys) => {
+    // 1. กรองชื่อ
+    const matchesSearch = sys.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    // 2. เช็คว่าเป็นไฟล์หรือลิงก์
+    const isFile =
+      sys.url && sys.url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i);
+    const type = isFile ? "file" : "link";
+
+    // 3. กรองประเภท (ถ้ามีการเลือก)
+    const matchesType = filterSystemType ? type === filterSystemType : true;
+
+    return matchesSearch && matchesType;
+  });
 
   if (isAuthChecking)
     return (
@@ -860,7 +929,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
       {/* --- DEPT SELECTION --- */}
       {isDeptSelectionOpen && (
         <div className="fixed inset-0 z-[200] bg-gradient-to-br from-gray-50 via-white to-red-50 flex flex-col items-center justify-center p-6 animate-fade-in-up">
@@ -929,7 +997,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
       {/* --- SIDEBAR --- */}
       <aside
         className={`fixed left-0 top-0 h-full bg-white/80 backdrop-blur-xl border-r border-gray-100 z-50 transition-all duration-300 ${isSidebarOpen ? "w-72" : "w-20"} hidden md:flex flex-col`}
@@ -1038,7 +1105,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </aside>
-
       {/* --- MAIN CONTENT --- */}
       <main
         className={`transition-all duration-300 ${isSidebarOpen ? "md:ml-72" : "md:ml-20"} min-h-screen flex flex-col`}
@@ -1098,7 +1164,7 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
                   <h2 className="text-lg font-bold text-gray-700 hidden md:block">
-                    ระบบงานของ: {userDept}
+                    ระบบงาน/คู่มือของ: {userDept}
                   </h2>
                   <button
                     onClick={() => {
@@ -1107,101 +1173,255 @@ export default function DashboardPage() {
                     }}
                     className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-[#ED1C24] to-red-600 text-white rounded-xl shadow-lg shadow-red-200 text-sm font-bold hover:shadow-red-300 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
                   >
-                    <PlusIcon /> เพิ่มระบบงาน
+                    <PlusIcon /> เพิ่มข้อมูล
                   </button>
                 </div>
+
+                {/* Search Bar & Filter */}
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                  {/* ช่องค้นหาชื่อ */}
                   <div className="relative group w-full md:w-1/3">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                       <SearchIcon />
                     </div>
                     <input
                       type="text"
-                      placeholder="ค้นหาชื่อระบบงาน..."
+                      placeholder="ค้นหาชื่อระบบ หรือ คู่มือ..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
                     />
                   </div>
-                </div>
-              </div>
-              {isLoadingData ? (
-                <div className="p-20 text-center flex flex-col items-center gap-4">
-                  <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
-                  <span className="text-gray-400 font-medium">
-                    กำลังโหลดข้อมูล...
-                  </span>
-                </div>
-              ) : filteredSystems.length === 0 ? (
-                <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
-                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                    <SystemIcon />
-                  </div>
-                  <p>ไม่พบรายการระบบงานของ {userDept}</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredSystems.map((sys) => (
-                    <div
-                      key={sys.id}
-                      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow relative group"
+
+                  {/* [เพิ่มใหม่] Dropdown เลือกประเภท */}
+                  <div className="w-full md:w-1/4">
+                    <select
+                      value={filterSystemType}
+                      onChange={(e) => setFilterSystemType(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none cursor-pointer"
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <span
-                          className={`px-2 py-1 rounded-md text-[10px] font-bold border ${sys.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
-                        >
-                          {sys.status === "published" ? "เผยแพร่" : "ซ่อน"}
-                        </span>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditSystem(sys)}
-                            className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
-                          >
-                            <PencilIcon />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteItem("postal_systems", sys.id)
-                            }
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <TrashIcon />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleToggleStatus("postal_systems", sys)
-                            }
-                            className={`p-1.5 rounded-lg transition-colors ${sys.status === "published" ? "text-green-500 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}
-                          >
-                            {sys.status === "published" ? (
-                              <ToggleOnIcon />
-                            ) : (
-                              <ToggleOffIcon />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <h3
-                        className="font-bold text-gray-800 text-lg mb-1 truncate"
-                        title={sys.name}
-                      >
-                        {sys.name}
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        {departmentFullNames[sys.dept] || sys.dept}
-                      </p>
-                      <a
-                        href={sys.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 text-sm text-[#ED1C24] font-medium hover:underline bg-red-50 p-2 rounded-lg w-fit"
-                      >
-                        <LinkIcon /> ไปที่ระบบ
-                      </a>
-                    </div>
-                  ))}
+                      <option value="">ทั้งหมด (All)</option>
+                      <option value="link">ระบบงาน (Links)</option>
+                      <option value="file">คู่มือ/เอกสาร (Files)</option>
+                    </select>
+                  </div>
                 </div>
-              )}
+                {/* Bulk Action Bar (ถ้ามีการเลือก Checkbox) */}
+                {selectedIds.length > 0 && (
+                  <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex flex-wrap items-center justify-between gap-4 animate-fade-in-up">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#ED1C24] text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {selectedIds.length}
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">
+                        รายการที่เลือก
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={
+                          () => handleBulkDelete("postal_systems") // ต้องไปปรับฟังก์ชัน handleBulkDelete ให้รองรับ table นี้ด้วย หรือสร้างใหม่
+                        }
+                        className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <TrashIcon /> ลบที่เลือก
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* --- TABLE VIEW --- */}
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden">
+                {isLoadingData ? (
+                  <div className="p-20 text-center flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-red-100 border-t-[#ED1C24] rounded-full animate-spin"></div>
+                    <span className="text-gray-400 font-medium">
+                      กำลังโหลดข้อมูล...
+                    </span>
+                  </div>
+                ) : filteredSystems.length === 0 ? (
+                  <div className="p-20 text-center flex flex-col items-center justify-center text-gray-400 gap-4">
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                      <SystemIcon />
+                    </div>
+                    <p>ไม่พบรายการระบบงานหรือคู่มือของ {userDept}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-500">
+                        <tr>
+                          <th className="p-5 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-red-600 rounded border-gray-300"
+                              onChange={(e) =>
+                                handleSelectAll(e, filteredSystems)
+                              }
+                              checked={
+                                filteredSystems.length > 0 &&
+                                selectedIds.length === filteredSystems.length
+                              }
+                            />
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-32 pl-2">
+                            สถานะ
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider">
+                            ชื่อระบบ / เอกสารคู่มือ
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-40">
+                            ประเภท
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider w-48">
+                            ส่วนงาน
+                          </th>
+                          <th className="p-5 text-xs font-extrabold uppercase tracking-wider text-right w-36 pr-8">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {filteredSystems.map((sys) => {
+                          // Logic เช็คประเภทไฟล์
+                          const isFile =
+                            sys.url &&
+                            sys.url.match(
+                              /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i,
+                            );
+
+                          return (
+                            <tr
+                              key={sys.id}
+                              className={`group transition-colors ${selectedIds.includes(sys.id) ? "bg-red-50/40" : "hover:bg-red-50/30"}`}
+                            >
+                              {/* Checkbox */}
+                              <td className="p-5 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 text-red-600 rounded border-gray-300 cursor-pointer"
+                                  checked={selectedIds.includes(sys.id)}
+                                  onChange={() => handleSelectOne(sys.id)}
+                                />
+                              </td>
+
+                              {/* Status */}
+                              <td className="p-5 pl-2">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${sys.status === "published" ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${sys.status === "published" ? "bg-green-500" : "bg-gray-400"}`}
+                                  ></span>
+                                  {sys.status === "published"
+                                    ? "Published"
+                                    : "Draft"}
+                                </span>
+                              </td>
+
+                              {/* Name (Clickable Link) */}
+                              <td className="p-5">
+                                <a
+                                  href={sys.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="group/link flex items-center gap-3 font-bold text-gray-800 text-sm hover:text-[#ED1C24] transition-colors w-fit"
+                                >
+                                  {/* Icon แสดงหน้าชื่อ */}
+                                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 group-hover/link:bg-red-100 group-hover/link:text-[#ED1C24] transition-colors">
+                                    {isFile ? <FileIcon /> : <SystemIcon />}
+                                  </div>
+                                  <span className="line-clamp-1 border-b border-transparent group-hover/link:border-red-200">
+                                    {sys.name}
+                                  </span>
+                                  {/* Icon เล็กๆ บอกว่าเป็น Link out */}
+                                  <svg
+                                    className="w-3 h-3 text-gray-300 group-hover/link:text-red-400"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                    />
+                                  </svg>
+                                </a>
+                              </td>
+
+                              {/* Type Badge */}
+                              <td className="p-5">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                                    isFile
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-blue-50 text-blue-700 border-blue-200"
+                                  }`}
+                                >
+                                  {isFile ? (
+                                    <>
+                                      <FileIcon /> เอกสาร/คู่มือ
+                                    </>
+                                  ) : (
+                                    <>
+                                      <LinkIcon /> ระบบงาน
+                                    </>
+                                  )}
+                                </span>
+                              </td>
+
+                              {/* Department */}
+                              <td className="p-5 text-sm font-medium text-gray-500">
+                                {sys.dept}
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="p-5 pr-8 text-right flex justify-end gap-2 items-center">
+                                <button
+                                  onClick={() =>
+                                    handleToggleStatus("postal_systems", sys)
+                                  }
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${sys.status === "published" ? "text-green-500 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}
+                                  title={
+                                    sys.status === "published"
+                                      ? "ซ่อน"
+                                      : "เผยแพร่"
+                                  }
+                                >
+                                  {sys.status === "published" ? (
+                                    <ToggleOnIcon />
+                                  ) : (
+                                    <ToggleOffIcon />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleEditSystem(sys)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all"
+                                  title="แก้ไข"
+                                >
+                                  <PencilIcon />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteItem("postal_systems", sys.id)
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                  title="ลบ"
+                                >
+                                  <TrashIcon />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1712,7 +1932,6 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
-
       {/* --- ADD/EDIT SYSTEM MODAL --- */}
       {isSystemModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1721,9 +1940,10 @@ export default function DashboardPage() {
             onClick={() => setIsSystemModalOpen(false)}
           ></div>
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 animate-fade-in-up flex flex-col">
+            {/* Header Modal */}
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-3xl">
               <h3 className="text-xl font-black text-gray-800">
-                {isEditing ? "แก้ไขระบบงาน" : "เพิ่มระบบงาน"} ({userDept})
+                {isEditing ? "แก้ไขข้อมูล" : "เพิ่มระบบงาน/คู่มือ"} ({userDept})
               </h3>
               <button
                 onClick={() => setIsSystemModalOpen(false)}
@@ -1732,14 +1952,52 @@ export default function DashboardPage() {
                 ×
               </button>
             </div>
+
+            {/* Form */}
             <form onSubmit={handleSystemSubmit} className="p-8 space-y-6">
+              {/* 1. เลือกประเภท (ระบบงาน vs เอกสาร) */}
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-gray-700">
+                  ประเภทข้อมูล
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSystemType("link")}
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-bold transition-all ${
+                      systemType === "link"
+                        ? "bg-red-50 border-red-200 text-[#ED1C24] ring-2 ring-red-100"
+                        : "bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    <LinkIcon /> ลิงก์ระบบงาน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSystemType("file")}
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-bold transition-all ${
+                      systemType === "file"
+                        ? "bg-red-50 border-red-200 text-[#ED1C24] ring-2 ring-red-100"
+                        : "bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    <FileIcon /> เอกสารคู่มือ
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. ชื่อระบบ หรือ ชื่อคู่มือ */}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">
-                  ชื่อระบบงาน
+                  {systemType === "link" ? "ชื่อระบบงาน" : "ชื่อคู่มือ/เอกสาร"}
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น ระบบติดตามพัสดุภายใน"
+                  placeholder={
+                    systemType === "link"
+                      ? "เช่น ระบบติดตามพัสดุ EMS"
+                      : "เช่น คู่มือการใช้งานระบบ..."
+                  }
                   value={systemFormData.name}
                   onChange={(e) =>
                     setSystemFormData({
@@ -1747,39 +2005,108 @@ export default function DashboardPage() {
                       name: e.target.value,
                     })
                   }
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none transition-all"
                   required
                 />
               </div>
-              <div className="space-y-2">
+
+              {/* 3. Input ตามประเภท (URL หรือ Upload) */}
+              <div className="space-y-2 animate-fade-in-up">
                 <label className="text-sm font-bold text-gray-700">
-                  URL (ลิงก์เข้าระบบ)
+                  {systemType === "link"
+                    ? "URL (ลิงก์เข้าระบบ)"
+                    : "ไฟล์เอกสาร (PDF, Word, Excel)"}
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={systemFormData.url}
-                  onChange={(e) =>
-                    setSystemFormData({
-                      ...systemFormData,
-                      url: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none"
-                  required
-                />
+
+                {systemType === "link" ? (
+                  // --- กรณี Link: ช่องกรอก URL ---
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={systemFormData.url}
+                    onChange={(e) =>
+                      setSystemFormData({
+                        ...systemFormData,
+                        url: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-red-500 outline-none transition-all"
+                    required={systemType === "link"}
+                  />
+                ) : (
+                  // --- กรณี File: ช่องอัปโหลด ---
+                  <div className="space-y-3">
+                    {!systemFile ? (
+                      <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-6 hover:bg-gray-50 transition-colors text-center cursor-pointer group">
+                        <input
+                          type="file"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setSystemFile(e.target.files[0]);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                        />
+                        <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-red-400 transition-colors">
+                          <CloudUploadIcon />
+                          <span className="text-xs font-bold">
+                            คลิกเพื่อเลือกไฟล์
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-xl animate-fade-in-up">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-red-500">
+                            <FileIcon />
+                          </div>
+                          <span className="text-sm font-bold text-gray-700 truncate">
+                            {systemFile.name}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSystemFile(null)}
+                          className="text-red-400 hover:text-red-600 p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* กรณีแก้ไข: แสดงลิงก์ไฟล์เดิมถ้ามี */}
+                    {isEditing && systemFormData.url && !systemFile && (
+                      <div className="flex items-center gap-2 text-xs bg-gray-100 p-2 rounded-lg text-gray-500">
+                        <span className="font-bold">ไฟล์ปัจจุบัน:</span>
+                        <a
+                          href={systemFormData.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-500 hover:underline truncate max-w-[200px]"
+                        >
+                          คลิกเพื่อดูไฟล์
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* ส่วนงาน (Hidden/Readonly) */}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">
-                  ส่วนงานเจ้าของระบบ
+                  ส่วนงานเจ้าของข้อมูล
                 </label>
                 <input
                   type="text"
-                  value={`${userDept} - ${departmentFullNames[userDept]}`}
+                  value={`${userDept} - ${departmentFullNames[userDept] || ""}`}
                   disabled
                   className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500"
                 />
               </div>
+
+              {/* สถานะ */}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-700">สถานะ</label>
                 <select
@@ -1790,12 +2117,14 @@ export default function DashboardPage() {
                       status: e.target.value,
                     })
                   }
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none cursor-pointer"
                 >
                   <option value="published">เผยแพร่</option>
                   <option value="draft">ซ่อน (Draft)</option>
                 </select>
               </div>
+
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -1807,6 +2136,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      );
       {/* --- ADD/EDIT DOCUMENT MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -2084,7 +2414,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
       {/* --- ADD/EDIT NEWS MODAL --- */}
       {isNewsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -2329,7 +2658,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
       {/* --- VIEW MODALS (Same as before) --- */}
       {isViewModalOpen && selectedDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

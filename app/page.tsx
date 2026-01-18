@@ -304,21 +304,12 @@ export default function Home() {
     { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
     { name: "หนังสือเวียน", href: "#circular", active: false },
     {
-      name: "รวมระบบงานไปรษณีย์",
+      name: "รวมระบบไปรษณีย์/คู่มือ", // ✅ แก้ไขชื่อตามต้องการ
       href: "/postal-systems",
       active: false,
-      target: "_blank", // ✅ 1. เพิ่ม target: "_blank" ตรงนี้
+      target: "_blank",
     },
-    {
-      name: "Download เอกสาร",
-      href: "#",
-      active: false,
-      dropdown: [
-        { name: "คู่มือการใช้ IDM", href: "#" },
-        { name: "คู่มือ New CA POS", href: "#" },
-        { name: "เอกสารแบบพิมพ์ตามส่วนงาน", href: "#" },
-      ],
-    },
+    // ❌ ลบเมนู "Download เอกสาร" ออกแล้ว
     { name: "ติดต่อเรา", href: "#", active: false },
     { name: "เข้าสู่ระบบ", href: "#", active: false },
   ];
