@@ -450,7 +450,6 @@ export default function DashboardPage() {
       const newUploadedFiles = [];
       for (let i = 0; i < totalFiles; i++) {
         const file = selectedFiles[i];
-        // Calculate precise progress based on loop index
         const startPct = (i / totalSteps) * 100;
         updateProgress(
           startPct,
@@ -462,7 +461,6 @@ export default function DashboardPage() {
           newUploadedFiles.push(result);
         } catch (err: any) {
           console.error(`Failed to upload ${file.name}`, err);
-          // Continue even if one fails? Or break? Let's notify but continue
           Toast.fire({ icon: "error", title: `Failed: ${file.name}` });
         }
 
@@ -489,6 +487,12 @@ export default function DashboardPage() {
       if (isEditing && editDocId)
         await supabase.from("documents").update(payload).eq("id", editDocId);
       else await supabase.from("documents").insert([payload]);
+
+      // --- เพิ่มส่วนนี้: บันทึกเบอร์โทรลง Local Storage ---
+      if (formData.phone) {
+        localStorage.setItem("last_contact_phone", formData.phone);
+      }
+      // ---------------------------------------------
 
       updateProgress(100, "เสร็จสิ้น!");
       await new Promise((r) => setTimeout(r, 500));
@@ -698,6 +702,10 @@ export default function DashboardPage() {
   };
 
   const resetForm = () => {
+    const savedPhone =
+      typeof window !== "undefined"
+        ? localStorage.getItem("last_contact_phone") || ""
+        : "";
     setFormData({
       title: "",
       book_no: "",
@@ -705,7 +713,7 @@ export default function DashboardPage() {
       dept: userDept,
       type: "บันทึกข้อความ",
       details: "",
-      phone: "",
+      phone: savedPhone,
       status: "published",
     });
     setLinkList([]);
@@ -1797,7 +1805,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
       {/* --- ADD/EDIT DOCUMENT MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1869,7 +1876,9 @@ export default function DashboardPage() {
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+
+                {/* --- แก้ไขจุดนี้: ปรับเป็น 3 คอลัมน์ แล้วเพิ่ม Phone --- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">
                       ส่วนงาน
@@ -1897,7 +1906,22 @@ export default function DashboardPage() {
                       <option value="ขอความร่วมมือ">ขอความร่วมมือ</option>
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">
+                      เบอร์โทรศัพท์
+                    </label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="เช่น 02-xxx-xxxx"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                    />
+                  </div>
                 </div>
+                {/* ----------------------------------------------- */}
+
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-gray-700">
                     รายละเอียด

@@ -259,6 +259,11 @@ export default function Home() {
     // ✅ ปิดเมนูมือถือเมื่อกดลิงก์
     setIsMobileMenuOpen(false);
 
+    // ✅ 2. ถ้าเป็นลิงก์ที่มี target="_blank" ให้ Return เลย (ปล่อยให้ Browser เปิดแท็บใหม่เอง)
+    if (item.target === "_blank") {
+      return;
+    }
+
     e.preventDefault();
     if (item.name === "ติดต่อเรา") setIsContactOpen(true);
     else if (item.name === "เข้าสู่ระบบ") {
@@ -301,6 +306,7 @@ export default function Home() {
       name: "รวมระบบงานไปรษณีย์",
       href: "/postal-systems",
       active: false,
+      target: "_blank", // ✅ 1. เพิ่ม target: "_blank" ตรงนี้
     },
     {
       name: "Download เอกสาร",
@@ -462,7 +468,6 @@ export default function Home() {
               </div>
             </div>
             <div className="flex flex-col">
-              {/* ✅ UPDATE: Adjusted text size for responsiveness */}
               <span
                 className={`font-black text-lg md:text-xl xl:text-2xl leading-none tracking-tight transition-colors duration-300 ${
                   isScrolled
@@ -484,7 +489,7 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* ✅ UPDATE: Desktop Menu (Hidden on Mobile/Tablet, Visible on XL) */}
+          {/* ✅ Desktop Menu */}
           <div
             className={`hidden xl:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
               isScrolled
@@ -497,6 +502,11 @@ export default function Home() {
                 <Link
                   href={item.href || "#"}
                   onClick={(e) => handleNavClick(e, item)}
+                  // ✅ 3. ใส่ target ลงใน Link (Desktop)
+                  target={item.target}
+                  rel={
+                    item.target === "_blank" ? "noopener noreferrer" : undefined
+                  }
                   className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 whitespace-nowrap ${
                     item.active
                       ? "bg-[#ED1C24] text-white shadow-md shadow-red-900/20"
@@ -541,7 +551,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* ✅ UPDATE: Mobile/Tablet Hamburger Button (Visible below XL) */}
+          {/* Hamburger Button */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
             className={`xl:hidden p-2 rounded-lg transition-colors ${
@@ -565,7 +575,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ✅ Mobile Menu Overlay (Full Screen) */}
+      {/* ✅ Mobile Menu Overlay */}
       <div
         className={`fixed inset-0 z-[60] bg-white transform transition-transform duration-300 ease-in-out ${
           isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
@@ -593,6 +603,11 @@ export default function Home() {
                 <Link
                   href={item.href || "#"}
                   onClick={(e) => handleNavClick(e, item)}
+                  // ✅ 3. ใส่ target ลงใน Link (Mobile)
+                  target={item.target}
+                  rel={
+                    item.target === "_blank" ? "noopener noreferrer" : undefined
+                  }
                   className={`flex items-center justify-between py-3 text-lg font-bold ${
                     item.active
                       ? "text-[#ED1C24]"
@@ -616,7 +631,7 @@ export default function Home() {
                     </svg>
                   )}
                 </Link>
-                {/* Mobile Dropdown Items (แสดงออกมาเลย) */}
+                {/* Mobile Dropdown Items */}
                 {item.dropdown && (
                   <div className="pl-4 mt-1 space-y-2 border-l-2 border-red-100 ml-1">
                     {item.dropdown.map((subItem, subIndex) => (
