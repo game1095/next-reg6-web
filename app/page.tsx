@@ -61,7 +61,7 @@ export default function Home() {
 
   // --- Dashboard State ---
   const [activeDashboard, setActiveDashboard] = useState<"income" | "fuze">(
-    "income"
+    "income",
   );
 
   // --- News State ---
@@ -136,7 +136,7 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) =>
-      setSession(session)
+      setSession(session),
     );
     return () => subscription.unsubscribe();
   }, []);
@@ -168,7 +168,7 @@ export default function Home() {
             no: i + 1,
             dateFormatted: formatThaiDate(doc.date),
             bookNo: doc.book_no,
-          }))
+          })),
         );
       }
 
@@ -194,7 +194,7 @@ export default function Home() {
               "พ.ย.",
               "ธ.ค.",
             ][parseInt(item.date.split("-")[1]) - 1],
-          }))
+          })),
         );
       }
       setIsDataLoaded(true);
@@ -249,7 +249,7 @@ export default function Home() {
 
   const handleNavClick = (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
-    item: any
+    item: any,
   ) => {
     if (item.dropdown) {
       e.preventDefault();
@@ -288,7 +288,7 @@ export default function Home() {
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
   const paginatedDocs = filteredDocs.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   // --- Data Arrays ---
@@ -363,11 +363,8 @@ export default function Home() {
       <style jsx global>{`
         .bg-grid-slate {
           background-size: 40px 40px;
-          background-image: linear-gradient(
-              to right,
-              rgba(0, 0, 0, 0.05) 1px,
-              transparent 1px
-            ),
+          background-image:
+            linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
             linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
         }
         @keyframes dash-flow {
@@ -503,8 +500,8 @@ export default function Home() {
                     item.active
                       ? "bg-[#ED1C24] text-white shadow-md shadow-red-900/20"
                       : isScrolled
-                      ? "text-gray-600 hover:text-[#ED1C24] hover:bg-white"
-                      : "text-gray-100 hover:text-white hover:bg-white/20"
+                        ? "text-gray-600 hover:text-[#ED1C24] hover:bg-white"
+                        : "text-gray-100 hover:text-white hover:bg-white/20"
                   }`}
                 >
                   {item.name}
@@ -1194,8 +1191,8 @@ export default function Home() {
                                     doc.type === "ประกาศ"
                                       ? "bg-red-50 text-red-600 border-red-100"
                                       : doc.type === "คำสั่ง"
-                                      ? "bg-amber-50 text-amber-600 border-amber-100"
-                                      : "bg-blue-50 text-blue-600 border-blue-100"
+                                        ? "bg-amber-50 text-amber-600 border-amber-100"
+                                        : "bg-blue-50 text-blue-600 border-blue-100"
                                   }`}
                                 >
                                   <span
@@ -1214,7 +1211,7 @@ export default function Home() {
                             {doc.dept ? (
                               <span
                                 className={`inline-block px-3 py-1.5 rounded-lg text-xs font-black ${getDeptBadgeStyle(
-                                  doc.dept
+                                  doc.dept,
                                 )}`}
                               >
                                 {doc.dept}
@@ -1443,65 +1440,251 @@ export default function Home() {
             }}
           ></div>
 
-          {/* LOGIN OVERLAY */}
+          {/* LOGIN OVERLAY (GRAND DESIGN) */}
           {isLoginOpen && (
-            <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative z-10 animate-fade-in-up">
-              <button
-                onClick={() => setIsLoginOpen(false)}
-                className="absolute top-4 right-4 text-gray-300 hover:text-red-500"
-              >
-                <CloseIcon />
-              </button>
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-red-600 text-white rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-red-200">
-                  <svg
-                    className="w-8 h-8"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
+            <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl relative z-10 animate-fade-in-up overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px]">
+              {/* LEFT SIDE: VISUAL & BRANDING (ซ่อนในมือถือ แสดงในจอใหญ่) */}
+              <div className="relative w-full md:w-5/12 hidden md:flex flex-col items-center justify-center p-12 text-white overflow-hidden bg-gray-900">
+                {/* Background Image */}
+                <div className="absolute inset-0 z-0">
+                  <Image
+                    src="/hero_img3.jpg" // ใช้รูปเดียวกับ Hero Banner เพื่อความคุมโทน
+                    alt="Login Background"
+                    fill
+                    className="object-cover opacity-60 scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#ED1C24]/90 via-[#ED1C24]/80 to-red-900/80 mix-blend-multiply"></div>
+                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150"></div>
                 </div>
-                <h3 className="text-2xl font-black text-gray-900">
-                  เข้าสู่ระบบ
-                </h3>
-              </div>
-              <form onSubmit={handleLogin} className="space-y-4">
-                {loginError && (
-                  <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg text-center">
-                    {loginError}
+
+                {/* Content Overlay */}
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-2xl mb-8 transform rotate-3 ring-4 ring-white/20 backdrop-blur-sm">
+                    <svg
+                      className="w-14 h-14 text-[#ED1C24]"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
+                    </svg>
                   </div>
-                )}
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase">
-                    Username
-                  </label>
-                  <input
-                    type="email"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-red-500 outline-none transition-all"
-                  />
+
+                  <h2 className="text-4xl font-black tracking-tight mb-2 drop-shadow-md">
+                    Information
+                    <br />
+                    Logistics
+                  </h2>
+                  <div className="w-16 h-1.5 bg-white/50 rounded-full mb-6"></div>
+                  <p className="text-red-100 font-medium text-lg leading-relaxed max-w-xs drop-shadow-sm">
+                    ระบบบริหารจัดการงานไปรษณีย์ <br /> สำนักงานไปรษณีย์เขต 6
+                  </p>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-red-500 outline-none transition-all"
-                  />
-                </div>
+
+                {/* Decorative Circles */}
+                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute top-12 right-12 w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl mix-blend-overlay"></div>
+              </div>
+
+              {/* RIGHT SIDE: LOGIN FORM */}
+              <div className="w-full md:w-7/12 bg-white relative flex flex-col justify-center p-8 md:p-16">
+                {/* Close Button */}
                 <button
-                  type="submit"
-                  disabled={isLoadingLogin}
-                  className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 hover:bg-red-700 hover:-translate-y-1 transition-all disabled:opacity-50"
+                  onClick={() => setIsLoginOpen(false)}
+                  className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all duration-300"
                 >
-                  {isLoadingLogin ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
+                  <CloseIcon />
                 </button>
-              </form>
+
+                <div className="max-w-md mx-auto w-full">
+                  <div className="mb-10">
+                    {/* Mobile Logo Show (แสดงเฉพาะมือถือ) */}
+                    <div className="md:hidden w-16 h-16 bg-[#ED1C24] rounded-2xl flex items-center justify-center shadow-lg shadow-red-200 mb-6 text-white">
+                      <svg
+                        className="w-8 h-8"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M4 8l8 5 8-5V19H4V8zM20 6H4l8 5 8-5z" />
+                      </svg>
+                    </div>
+
+                    <h3 className="text-3xl font-black text-gray-900 mb-2">
+                      เข้าสู่ระบบ
+                    </h3>
+                    <p className="text-gray-500">
+                      กรุณากรอกข้อมูลเพื่อยืนยันตัวตนก่อนเข้าใช้งาน
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    {loginError && (
+                      <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm font-bold rounded-r-lg flex items-center gap-3 shadow-sm animate-pulse">
+                        <svg
+                          className="w-5 h-5 flex-shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                        {loginError}
+                      </div>
+                    )}
+
+                    <div className="space-y-5">
+                      {/* Username */}
+                      <div className="relative group">
+                        <input
+                          type="email"
+                          id="username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="peer w-full px-5 pt-6 pb-2 rounded-xl bg-gray-50 border-2 border-transparent text-gray-900 font-bold placeholder-transparent focus:bg-white focus:border-[#ED1C24] outline-none transition-all shadow-sm"
+                          placeholder="Username"
+                        />
+                        <label
+                          htmlFor="username"
+                          className="absolute left-5 top-4 text-gray-400 text-xs font-bold uppercase tracking-wider transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-4 peer-placeholder-shown:font-normal peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:text-[#ED1C24] peer-focus:font-bold peer-[&:not(:placeholder-shown)]:top-1.5 peer-[&:not(:placeholder-shown)]:text-[10px] peer-[&:not(:placeholder-shown)]:font-bold"
+                        >
+                          อีเมลผู้ใช้งาน (Username)
+                        </label>
+                        <div className="absolute right-4 top-4 text-gray-300 peer-focus:text-[#ED1C24] transition-colors">
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Password */}
+                      <div className="relative group">
+                        <input
+                          type="password"
+                          id="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="peer w-full px-5 pt-6 pb-2 rounded-xl bg-gray-50 border-2 border-transparent text-gray-900 font-bold placeholder-transparent focus:bg-white focus:border-[#ED1C24] outline-none transition-all shadow-sm"
+                          placeholder="Password"
+                        />
+                        <label
+                          htmlFor="password"
+                          className="absolute left-5 top-4 text-gray-400 text-xs font-bold uppercase tracking-wider transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-4 peer-placeholder-shown:font-normal peer-focus:top-1.5 peer-focus:text-[10px] peer-focus:text-[#ED1C24] peer-focus:font-bold peer-[&:not(:placeholder-shown)]:top-1.5 peer-[&:not(:placeholder-shown)]:text-[10px] peer-[&:not(:placeholder-shown)]:font-bold"
+                        >
+                          รหัสผ่าน (Password)
+                        </label>
+                        <div className="absolute right-4 top-4 text-gray-300 peer-focus:text-[#ED1C24] transition-colors">
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-[#ED1C24] focus:ring-[#ED1C24]"
+                        />
+                        <span className="text-gray-500 group-hover:text-gray-700 transition-colors">
+                          จำการเข้าสู่ระบบ
+                        </span>
+                      </label>
+                      <a
+                        href="#"
+                        className="font-bold text-[#ED1C24] hover:text-red-700 hover:underline"
+                      >
+                        ลืมรหัสผ่าน?
+                      </a>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoadingLogin}
+                      className="w-full py-4 bg-gradient-to-r from-[#ED1C24] to-rose-600 text-white rounded-xl font-black text-lg shadow-lg shadow-red-200 hover:shadow-red-400 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                    >
+                      {isLoadingLogin ? (
+                        <>
+                          <svg
+                            className="animate-spin h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          <span>กำลังเข้าสู่ระบบ...</span>
+                        </>
+                      ) : (
+                        <>
+                          เข้าสู่ระบบ
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2.5"
+                              d="M17 8l4 4m0 0l-4 4m4-4H3"
+                            />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="mt-8 text-center">
+                    <p className="text-xs text-gray-400">
+                      มีปัญหาการใช้งาน?{" "}
+                      <a
+                        href="#"
+                        className="font-bold text-gray-600 hover:text-[#ED1C24]"
+                      >
+                        ติดต่อผู้ดูแลระบบ (Admin)
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1868,7 +2051,7 @@ export default function Home() {
                                   onClick={() => window.open(img.url, "_blank")}
                                 />
                               </div>
-                            )
+                            ),
                           )}
                         </div>
                       </div>
