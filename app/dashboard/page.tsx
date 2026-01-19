@@ -841,9 +841,11 @@ export default function DashboardPage() {
 
   // --- Filter Logic ---
   const filteredDocs = docList.filter((doc) => {
+    const lowerTerm = searchTerm.toLowerCase();
     const matchesSearch =
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.book_no.toLowerCase().includes(searchTerm.toLowerCase());
+      doc.title.toLowerCase().includes(lowerTerm) ||
+      doc.book_no.toLowerCase().includes(lowerTerm) ||
+      (doc.details || "").toLowerCase().includes(lowerTerm);
     const matchesStartDate = filterStartDate
       ? doc.date >= filterStartDate
       : true;
