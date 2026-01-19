@@ -1457,7 +1457,7 @@ export default function DashboardPage() {
                     </div>
                     <input
                       type="text"
-                      placeholder="ค้นหาเลขที่, หัวข้อ..."
+                      placeholder="ค้นหาเลขที่, หัวข้อ , รายละเอียด..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:border-red-100 focus:ring-4 focus:ring-red-50 outline-none transition-all"
