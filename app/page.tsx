@@ -266,8 +266,8 @@ export default function Home() {
     }
 
     e.preventDefault();
-    if (item.name === "ติดต่อเรา") setIsContactOpen(true);
-    else if (item.name === "เข้าสู่ระบบ") {
+    // if (item.name === "ติดต่อเรา") setIsContactOpen(true);
+    if (item.name === "เข้าสู่ระบบ") {
       session ? router.push("/dashboard") : setIsLoginOpen(true);
     } else if (item.href.startsWith("#")) {
       const targetId = item.href.substring(1);
@@ -306,20 +306,20 @@ export default function Home() {
     target?: string;
     dropdown?: { name: string; href: string }[];
   }[] = [
-    { name: "หน้าหลัก", href: "/", active: true },
-    { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
-    { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
-    { name: "หนังสือเวียน", href: "#circular", active: false },
-    {
-      name: "รวมระบบไปรษณีย์/คู่มือ",
-      href: "/postal-systems",
-      active: false,
-      target: "_blank",
-    },
-    // ❌ ลบเมนู "Download เอกสาร" ออกแล้ว
-    { name: "ติดต่อเรา", href: "#", active: false },
-    { name: "เข้าสู่ระบบ", href: "#", active: false },
-  ];
+      { name: "หน้าหลัก", href: "/", active: true },
+      { name: "ข่าวประชาสัมพันธ์", href: "#news", active: false },
+      { name: "สรุปผลการดำเนินงาน", href: "#dashboard", active: false },
+      { name: "หนังสือเวียน", href: "#circular", active: false },
+      {
+        name: "รวมระบบไปรษณีย์/คู่มือ",
+        href: "/postal-systems",
+        active: false,
+        target: "_blank",
+      },
+      // ❌ ลบเมนู "Download เอกสาร" ออกแล้ว
+      { name: "หมายเลขโทรศัพท์", href: "/phone-numbers", active: false },
+      { name: "เข้าสู่ระบบ", href: "#", active: false },
+    ];
   const contactList = [
     { name: "ฝปข.6", phone: "098-9999999" },
     { name: "ผช.ฝปข.6 (ป)", phone: "098-9999999" },
@@ -334,9 +334,8 @@ export default function Home() {
     <div className="min-h-screen w-full bg-[#FAFAFA] text-gray-800 font-sans selection:bg-red-500 selection:text-white flex flex-col overflow-x-hidden relative">
       {/* 🟢 SPLASH SCREEN */}
       <div
-        className={`fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
-          isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
-        }`}
+        className={`fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${isSiteReady ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
       >
         <div className="mb-8 relative">
           <Image
@@ -435,11 +434,10 @@ export default function Home() {
 
       {/* ✅ NAVBAR (Responsive: Show Full Menu on XL, Hamburger on LG and below) */}
       <nav
-        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
-          isScrolled
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${isScrolled
             ? "bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-md py-2"
             : "bg-gradient-to-b from-black/80 via-black/40 to-transparent py-6"
-        }`}
+          }`}
       >
         <div className="w-full px-6 md:px-10 h-16 flex justify-between items-center">
           {/* Logo Section */}
@@ -449,11 +447,10 @@ export default function Home() {
           >
             <div className="relative">
               <div
-                className={`absolute inset-0 bg-red-500 rounded-xl blur opacity-20 transition-opacity duration-300 ${
-                  !isScrolled
+                className={`absolute inset-0 bg-red-500 rounded-xl blur opacity-20 transition-opacity duration-300 ${!isScrolled
                     ? "group-hover:opacity-60"
                     : "group-hover:opacity-40"
-                }`}
+                  }`}
               ></div>
               <div className="relative w-12 h-12 bg-gradient-to-br from-[#ED1C24] to-rose-600 text-white flex items-center justify-center rounded-xl shadow-lg shadow-red-500/30 group-hover:scale-105 group-hover:rotate-3 transition-all duration-300 ring-2 ring-white/20">
                 <svg
@@ -467,20 +464,18 @@ export default function Home() {
             </div>
             <div className="flex flex-col">
               <span
-                className={`font-black text-lg md:text-xl xl:text-2xl leading-none tracking-tight transition-colors duration-300 ${
-                  isScrolled
+                className={`font-black text-lg md:text-xl xl:text-2xl leading-none tracking-tight transition-colors duration-300 ${isScrolled
                     ? "text-gray-900 group-hover:text-[#ED1C24]"
                     : "text-white drop-shadow-md"
-                }`}
+                  }`}
               >
                 สำนักงานไปรษณีย์เขต 6
               </span>
               <span
-                className={`text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mt-0.5 transition-colors duration-300 ${
-                  isScrolled
+                className={`text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mt-0.5 transition-colors duration-300 ${isScrolled
                     ? "text-gray-500 group-hover:text-red-400"
                     : "text-gray-200 group-hover:text-white"
-                }`}
+                  }`}
               >
                 REGIONAL POSTAL BUREAU (REGION 6)
               </span>
@@ -489,11 +484,10 @@ export default function Home() {
 
           {/* ✅ Desktop Menu */}
           <div
-            className={`hidden xl:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${
-              isScrolled
+            className={`hidden xl:flex items-center px-1 py-1 rounded-full border shadow-sm transition-all duration-500 ${isScrolled
                 ? "bg-white/50 backdrop-blur-sm border-gray-200/50"
                 : "bg-black/20 backdrop-blur-md border-white/10"
-            }`}
+              }`}
           >
             {navItems.map((item, index) => (
               <div key={index} className="relative group">
@@ -505,13 +499,12 @@ export default function Home() {
                   rel={
                     item.target === "_blank" ? "noopener noreferrer" : undefined
                   }
-                  className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 whitespace-nowrap ${
-                    item.active
+                  className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 whitespace-nowrap ${item.active
                       ? "bg-[#ED1C24] text-white shadow-md shadow-red-900/20"
                       : isScrolled
                         ? "text-gray-600 hover:text-[#ED1C24] hover:bg-white"
                         : "text-gray-100 hover:text-white hover:bg-white/20"
-                  }`}
+                    }`}
                 >
                   {item.name}
                   {item.dropdown && (
@@ -552,9 +545,8 @@ export default function Home() {
           {/* Hamburger Button */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className={`xl:hidden p-2 rounded-lg transition-colors ${
-              isScrolled ? "text-gray-800" : "text-white"
-            }`}
+            className={`xl:hidden p-2 rounded-lg transition-colors ${isScrolled ? "text-gray-800" : "text-white"
+              }`}
           >
             <svg
               className="w-8 h-8"
@@ -575,9 +567,8 @@ export default function Home() {
 
       {/* ✅ Mobile Menu Overlay */}
       <div
-        className={`fixed inset-0 z-[60] bg-white transform transition-transform duration-300 ease-in-out ${
-          isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed inset-0 z-[60] bg-white transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex flex-col h-full">
           {/* Mobile Header */}
@@ -606,11 +597,10 @@ export default function Home() {
                   rel={
                     item.target === "_blank" ? "noopener noreferrer" : undefined
                   }
-                  className={`flex items-center justify-between py-3 text-lg font-bold ${
-                    item.active
+                  className={`flex items-center justify-between py-3 text-lg font-bold ${item.active
                       ? "text-[#ED1C24]"
                       : "text-gray-700 hover:text-[#ED1C24]"
-                  }`}
+                    }`}
                 >
                   {item.name}
                   {item.dropdown && (
@@ -719,21 +709,19 @@ export default function Home() {
             <div className="bg-gray-100 p-1.5 rounded-xl flex items-center gap-1 self-start md:self-end">
               <button
                 onClick={() => setActiveNewsTab("ทั่วไป")}
-                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
-                  activeNewsTab === "ทั่วไป"
+                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${activeNewsTab === "ทั่วไป"
                     ? "bg-white text-[#ED1C24] shadow-md"
                     : "text-gray-500 hover:text-gray-700"
-                }`}
+                  }`}
               >
                 ข่าวสารทั่วไป
               </button>
               <button
                 onClick={() => setActiveNewsTab("ประชาสัมพันธ์")}
-                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${
-                  activeNewsTab === "ประชาสัมพันธ์"
+                className={`px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${activeNewsTab === "ประชาสัมพันธ์"
                     ? "bg-white text-[#ED1C24] shadow-md"
                     : "text-gray-500 hover:text-gray-700"
-                }`}
+                  }`}
               >
                 ข่าวประชาสัมพันธ์
               </button>
@@ -825,9 +813,8 @@ export default function Home() {
                     {/* Image Section */}
                     <div
                       className={`w-full relative overflow-hidden bg-gray-200 
-                      ${
-                        activeNewsTab === "ประชาสัมพันธ์" ? "h-full" : "h-[45%]"
-                      }`}
+                      ${activeNewsTab === "ประชาสัมพันธ์" ? "h-full" : "h-[45%]"
+                        }`}
                     >
                       {news.cover_image?.url ? (
                         <>
@@ -967,21 +954,19 @@ export default function Home() {
               <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm">
                 <button
                   onClick={() => setActiveDashboard("income")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                    activeDashboard === "income"
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeDashboard === "income"
                       ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
                       : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   รายได้ - รายจ่าย
                 </button>
                 <button
                   onClick={() => setActiveDashboard("fuze")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                    activeDashboard === "fuze"
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeDashboard === "fuze"
                       ? "bg-[#ED1C24] text-white shadow-md shadow-red-200"
                       : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   FUZE Post
                 </button>
@@ -1202,13 +1187,12 @@ export default function Home() {
                             <div className="flex flex-col items-center justify-center gap-2">
                               {doc.type && (
                                 <span
-                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
-                                    doc.type === "ประกาศ"
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${doc.type === "ประกาศ"
                                       ? "bg-red-50 text-red-600 border-red-100"
                                       : doc.type === "คำสั่ง"
                                         ? "bg-amber-50 text-amber-600 border-amber-100"
                                         : "bg-blue-50 text-blue-600 border-blue-100"
-                                  }`}
+                                    }`}
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full bg-current`}
@@ -1828,11 +1812,10 @@ export default function Home() {
 
                   <div className="relative">
                     <div
-                      className={`text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap transition-all duration-300 ${
-                        isDetailsExpanded
+                      className={`text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap transition-all duration-300 ${isDetailsExpanded
                           ? ""
                           : "line-clamp-4 max-h-[100px] overflow-hidden"
-                      }`}
+                        }`}
                     >
                       {selectedDocument.details || "ไม่มีรายละเอียดเพิ่มเติม"}
                     </div>
@@ -1890,97 +1873,97 @@ export default function Home() {
                 {/* Attachments & Links */}
                 {(selectedDocument.files?.length > 0 ||
                   selectedDocument.links?.length > 0) && (
-                  <div className="border-t border-gray-100 pt-6">
-                    <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 text-gray-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                        />
-                      </svg>
-                      เอกสารแนบและลิงก์ที่เกี่ยวข้อง
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Files */}
-                      {selectedDocument.files?.map((file: any, i: number) => (
-                        <a
-                          key={`file-${i}`}
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 hover:shadow-md transition-all group cursor-pointer"
+                    <div className="border-t border-gray-100 pt-6">
+                      <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
-                          <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-bold text-gray-800 truncate group-hover:text-[#ED1C24] transition-colors">
-                              {file.name}
-                            </span>
-                            <span className="text-[10px] text-gray-400 font-medium">
-                              ดาวน์โหลดเอกสาร
-                            </span>
-                          </div>
-                        </a>
-                      ))}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                          />
+                        </svg>
+                        เอกสารแนบและลิงก์ที่เกี่ยวข้อง
+                      </h4>
 
-                      {/* Links */}
-                      {selectedDocument.links?.map((link: any, i: number) => (
-                        <a
-                          key={`link-${i}`}
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all group cursor-pointer"
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                              />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors">
-                              {link.title || link.url}
-                            </span>
-                            <span className="text-[10px] text-gray-400 font-medium">
-                              เปิดลิงก์ภายนอก
-                            </span>
-                          </div>
-                        </a>
-                      ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Files */}
+                        {selectedDocument.files?.map((file: any, i: number) => (
+                          <a
+                            key={`file-${i}`}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50/30 hover:shadow-md transition-all group cursor-pointer"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0 group-hover:scale-110 transition-transform">
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="text-sm font-bold text-gray-800 truncate group-hover:text-[#ED1C24] transition-colors">
+                                {file.name}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-medium">
+                                ดาวน์โหลดเอกสาร
+                              </span>
+                            </div>
+                          </a>
+                        ))}
+
+                        {/* Links */}
+                        {selectedDocument.links?.map((link: any, i: number) => (
+                          <a
+                            key={`link-${i}`}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md transition-all group cursor-pointer"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform">
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                                />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-600 transition-colors">
+                                {link.title || link.url}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-medium">
+                                เปิดลิงก์ภายนอก
+                              </span>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           )}
@@ -2042,11 +2025,10 @@ export default function Home() {
           {/* NEWS MODAL */}
           {selectedNews && (
             <div
-              className={`bg-white w-full ${
-                selectedNews.category === "ประชาสัมพันธ์"
+              className={`bg-white w-full ${selectedNews.category === "ประชาสัมพันธ์"
                   ? "max-w-5xl bg-transparent shadow-none"
                   : "max-w-3xl rounded-2xl shadow-2xl"
-              } relative z-10 overflow-hidden max-h-[95vh] flex flex-col animate-fade-in-up`}
+                } relative z-10 overflow-hidden max-h-[95vh] flex flex-col animate-fade-in-up`}
             >
               {/* 1. กรณีข่าวประชาสัมพันธ์ */}
               {selectedNews.category === "ประชาสัมพันธ์" ? (
