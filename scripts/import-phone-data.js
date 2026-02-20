@@ -17,10 +17,22 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const CSV_FILE = path.resolve(__dirname, '../เบอร์โทรฯภายใน ปณท 2568 - ชีต2.csv');
+const CSV_FILE = path.resolve(__dirname, '../เบอร์โทรฯภายใน ปณท 2568 - ชีต2(New).csv');
 
 async function importData() {
     try {
+        console.log('Clearing existing data...');
+        const { error: deleteError } = await supabase
+            .from('phone_numbers')
+            .delete()
+            .neq('id', 0); // Delete all rows where id is not 0 (which should be all rows if id is auto-incrementing int)
+        
+        if (deleteError) {
+            console.error('Error clearing data:', deleteError);
+            return;
+        }
+        console.log('Existing data cleared.');
+
         const fileContent = fs.readFileSync(CSV_FILE, 'utf8');
         const lines = fileContent.split(/\r?\n/);
 
